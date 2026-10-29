@@ -11,8 +11,9 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Stop-WithMessage "Node.js не найден в PATH."
 }
 
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-  Stop-WithMessage "npm не найден в PATH."
+$NpmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $NpmCmd) {
+  Stop-WithMessage "npm.cmd не найден в PATH."
 }
 
 if ($env:VK_PROFILE_DIR) {
@@ -35,14 +36,14 @@ else {
   $EvidenceDir = Join-Path $PSScriptRoot "evidence"
 }
 
-Write-Host "Local Point VK Collector v0.1" -ForegroundColor Cyan
+Write-Host "Local Point VK Collector v0.2" -ForegroundColor Cyan
 Write-Host "Profile:  $ProfileDir"
 Write-Host "Evidence: $EvidenceDir"
 Write-Host ""
 
 if (-not (Test-Path (Join-Path $PSScriptRoot "node_modules\playwright"))) {
   Write-Host "[1/4] Установка локальной зависимости..." -ForegroundColor Yellow
-  npm install
+  & $NpmCmd.Source install
   if ($LASTEXITCODE -ne 0) {
     Stop-WithMessage "npm install завершился с ошибкой."
   }
@@ -52,13 +53,13 @@ else {
 }
 
 Write-Host "[2/4] Проверка READ-ONLY policy..." -ForegroundColor Yellow
-npm test
+& $NpmCmd.Source test
 if ($LASTEXITCODE -ne 0) {
   Stop-WithMessage "Тесты READ-ONLY policy не прошли."
 }
 
 Write-Host "[3/4] Проверка локального браузера..." -ForegroundColor Yellow
-npm run doctor
+& $NpmCmd.Source run doctor
 if ($LASTEXITCODE -ne 0) {
   Stop-WithMessage "Chrome/Edge не удалось запустить. См. doctor output."
 }
@@ -68,14 +69,14 @@ if (-not $HasProfile) {
   Write-Host ""
   Write-Host "VK-сессия ещё не создана. Сейчас откроется локальный браузер." -ForegroundColor Yellow
   Write-Host "Войдите в VK вручную. Пароль и 2FA скрипт не читает."
-  npm run login
+  & $NpmCmd.Source run login
   if ($LASTEXITCODE -ne 0) {
     Stop-WithMessage "Не удалось создать локальную VK-сессию."
   }
 }
 
 Write-Host "[4/4] READ-ONLY сбор evidence..." -ForegroundColor Yellow
-npm run collect
+& $NpmCmd.Source run collect
 $CollectExit = $LASTEXITCODE
 
 Write-Host ""
