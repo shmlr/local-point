@@ -160,17 +160,40 @@ try {
     ]
   };
 
+  const runSummary = {
+    schema_version: "0.1",
+    collector: "local-point-vk-collector",
+    observed_at: observedAt,
+    organization_id: "palleta",
+    platform: "VK",
+    status,
+    target_url: sanitizeUrl(targetUrl),
+    visible_text_chars: visibleText.length,
+    links_count: links.length,
+    blocked_non_read_requests: blockedRequests.length,
+    blocked_endpoint_groups: blockedSummary.length,
+    policy_relaxed: false,
+    next_action:
+      status === "BLOCKED"
+        ? "REVIEW_BLOCKED_SUMMARY"
+        : blockedRequests.length > 0
+          ? "REVIEW_BLOCKED_SUMMARY_BEFORE_EXTRACTION"
+          : "READY_FOR_EXTRACTION_CHECKPOINT"
+  };
+
   const snapshotPath = path.join(runDir, "snapshot.json");
   const textPath = path.join(runDir, "visible-text.txt");
   const linksPath = path.join(runDir, "links.json");
   const blockedPath = path.join(runDir, "blocked-requests.json");
   const summaryPath = path.join(runDir, "blocked-summary.json");
+  const runSummaryPath = path.join(runDir, "run-summary.json");
 
   await writeJson(snapshotPath, snapshot);
   await writeText(textPath, visibleText);
   await writeJson(linksPath, links);
   await writeJson(blockedPath, blockedRequests);
   await writeJson(summaryPath, blockedSummary);
+  await writeJson(runSummaryPath, runSummary);
 
   const manifest = {
     schema_version: "0.1",
@@ -180,7 +203,8 @@ try {
       "visible-text.txt": await sha256File(textPath),
       "links.json": await sha256File(linksPath),
       "blocked-requests.json": await sha256File(blockedPath),
-      "blocked-summary.json": await sha256File(summaryPath)
+      "blocked-summary.json": await sha256File(summaryPath),
+      "run-summary.json": await sha256File(runSummaryPath)
     }
   };
 
@@ -192,6 +216,7 @@ try {
   console.log("Links:", links.length);
   console.log("Blocked non-read requests:", blockedRequests.length);
   console.log("Blocked endpoint groups:", blockedSummary.length);
+  console.log("Next action:", runSummary.next_action);
 
   if (status === "BLOCKED") {
     process.exitCode = 2;
@@ -203,7 +228,8 @@ try {
     observed_at: observedAt,
     status: "BLOCKED",
     reason: error instanceof Error ? error.message : String(error),
-    readonly_policy_relaxed: false
+    readonly_policy_relaxed: false,
+    next_action: "REVIEW_FAILURE"
   };
 
   await writeJson(path.join(runDir, "failure.json"), failure);
