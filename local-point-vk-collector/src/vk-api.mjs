@@ -3,7 +3,7 @@ import {
   assertReadOnlyVkMethod
 } from "./api-policy.mjs";
 
-const API_ROOT = "https://api.vk.com/method";
+const API_ROOT = "https://api.vk.ru/method";
 
 export async function callVkReadOnly({
   method,
@@ -32,13 +32,12 @@ export async function callVkReadOnly({
     }
   }
 
-  // Keep the token out of the URL and logs.
-  body.set("access_token", token);
   body.set("v", VK_API_VERSION);
 
   const response = await fetchImpl(`${API_ROOT}/${method}`, {
     method: "POST",
     headers: {
+      "authorization": `Bearer ${token}`,
       "content-type": "application/x-www-form-urlencoded",
       "user-agent": "LocalPoint-VK-Collector/0.2"
     },
