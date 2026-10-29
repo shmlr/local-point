@@ -8,14 +8,14 @@ New-Item -ItemType Directory -Force -Path $SecretDir | Out-Null
 
 Write-Host "Local Point VK - service token setup" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "APP ID можно вводить здесь."
-Write-Host "CLIENT SECRET не сохраняется и не выводится."
-Write-Host "Service token будет сохранён через Windows DPAPI для текущего пользователя."
+Write-Host "Enter VK APP ID."
+Write-Host "CLIENT SECRET is not stored or printed."
+Write-Host "The service token will be protected with Windows DPAPI for the current user."
 Write-Host ""
 
 $AppId = Read-Host "VK APP ID"
 if (-not ($AppId -match '^\d+$')) {
-  throw "VK APP ID должен быть числом."
+  throw "VK APP ID must be numeric."
 }
 
 $ClientSecretSecure = Read-Host "VK CLIENT SECRET" -AsSecureString
@@ -38,7 +38,7 @@ finally {
 }
 
 if (-not $Response.access_token) {
-  throw "VK не вернул service access token."
+  throw "VK did not return a service access token."
 }
 
 $TokenSecure = ConvertTo-SecureString $Response.access_token -AsPlainText -Force
@@ -48,6 +48,6 @@ Remove-Variable TokenSecure -ErrorAction SilentlyContinue
 Remove-Variable Response -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "PASS: service token получен и сохранён локально в зашифрованном виде." -ForegroundColor Green
+Write-Host "PASS: service token received and stored locally with Windows DPAPI." -ForegroundColor Green
 Write-Host "Token file: $TokenFile"
-Write-Host "Сам токен не выводился."
+Write-Host "The token itself was not printed."
