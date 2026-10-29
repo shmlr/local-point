@@ -1,6 +1,12 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
+$NpmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $NpmCmd) {
+  Write-Host "BLOCKED: npm.cmd не найден в PATH." -ForegroundColor Red
+  exit 2
+}
+
 $TokenFile = Join-Path $env:LOCALAPPDATA "LocalPoint\secrets\vk-service-token.xml"
 
 if (-not (Test-Path $TokenFile)) {
@@ -23,7 +29,7 @@ try {
   Write-Host "Mode: OFFICIAL VK API / READ-ONLY ALLOWLIST"
   Write-Host ""
 
-  npm run api:collect
+  & $NpmCmd.Source run api:collect
   $ExitCode = $LASTEXITCODE
 }
 finally {
