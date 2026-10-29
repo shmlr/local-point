@@ -37,9 +37,9 @@ test("URL sanitizer removes credentials query and hash", () => {
   assert.equal(safe, "https://example.com/path");
 });
 
-test("URL sanitizer preserves useful path", () => {
+test("VK wall query is converted to a canonical safe post URL", () => {
   assert.equal(
     sanitizeUrl("https://vk.com/palleta.store?w=wall-1_2"),
-    "https://vk.com/palleta.store"
+    "https://vk.com/wall-1_2"
   );
 });
