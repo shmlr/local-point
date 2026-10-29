@@ -1,6 +1,6 @@
 {
   "name": "local-point-vk-collector",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Local READ-ONLY evidence collector for VK community audits.",
@@ -8,6 +8,7 @@
     "doctor": "node src/doctor.mjs",
     "login": "node src/login.mjs",
     "collect": "node src/collect.mjs",
+    "api:collect": "node src/api-collect.mjs",
     "test": "node --test"
   },
   "dependencies": {
