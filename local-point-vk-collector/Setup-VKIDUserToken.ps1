@@ -23,6 +23,7 @@ function To-Base64Url([byte[]]$Bytes) {
 $CodeVerifier = New-RandomBase64Url 32
 $State = New-RandomBase64Url 24
 $SessionId = [guid]::NewGuid().ToString()
+$SessionId = [guid]::NewGuid().ToString()
 $sha = [System.Security.Cryptography.SHA256]::Create()
 try {
   $challengeBytes = $sha.ComputeHash([System.Text.Encoding]::ASCII.GetBytes($CodeVerifier))
@@ -35,6 +36,9 @@ $statsJson = @{
   flow_source = "from_custom_auth"
   session_id = $SessionId
 } | ConvertTo-Json -Compress
+$StatsInfo = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($statsJson))
+
+$statsJson = @{ flow_source = "from_custom_auth"; session_id = $SessionId } | ConvertTo-Json -Compress
 $StatsInfo = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($statsJson))
 
 $params = [ordered]@{
