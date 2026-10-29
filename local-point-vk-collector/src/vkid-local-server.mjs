@@ -1,10 +1,15 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const HOST = "127.0.0.1";
 const PORT = 80;
 const APP_ID = 54864900;
 const REDIRECT_URL = "http://localhost";
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SDK_FILE = path.resolve(HERE, "../node_modules/@vkid/sdk/dist-sdk/umd/index.js");
 
 const html = `<!doctype html>
 <html lang="ru">
@@ -24,7 +29,7 @@ const html = `<!doctype html>
   <button id="login">Войти через VK ID</button>
   <div id="status"></div>
 
-  <script src="https://unpkg.com/@vkid/sdk@2.6.1/dist-sdk/umd/index.js"></script>
+  <script src="/vkid-sdk.js"></script>
   <script>
     const statusEl = document.getElementById('status');
     const loginBtn = document.getElementById('login');
@@ -111,7 +116,19 @@ function storeTokens(payload) {
   });
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+  if (req.method === "GET" && req.url === "/vkid-sdk.js") {
+    try {
+      const sdk = await readFile(SDK_FILE);
+      res.writeHead(200, {"content-type":"application/javascript; charset=utf-8","cache-control":"no-store"});
+      res.end(sdk);
+    } catch (error) {
+      res.writeHead(500, {"content-type":"text/plain; charset=utf-8"});
+      res.end("VKID_SDK_LOCAL_FILE_MISSING");
+    }
+    return;
+  }
+
   if (req.method === "GET") {
     res.writeHead(200, {"content-type":"text/html; charset=utf-8","cache-control":"no-store"});
     res.end(html);
@@ -149,6 +166,7 @@ server.listen(PORT, HOST, () => {
   console.log("Open: http://localhost");
   console.log("App ID: " + APP_ID);
   console.log("Mode: official VK ID Web SDK / OAuth 2.1 PKCE");
+  console.log("SDK: local @vkid/sdk 2.6.10");
   console.log("No token is printed.");
 });
 
