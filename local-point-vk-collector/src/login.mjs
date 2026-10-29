@@ -1,11 +1,9 @@
 import { chromium } from "playwright";
-import path from "node:path";
 import process from "node:process";
 import readline from "node:readline/promises";
+import { defaultProfileDir } from "./lib.mjs";
 
-const profileDir = path.resolve(
-  process.env.VK_PROFILE_DIR || ".local/vk-profile"
-);
+const profileDir = process.env.VK_PROFILE_DIR || defaultProfileDir();
 const channel = process.env.VK_BROWSER_CHANNEL || "chrome";
 
 console.log("Local Point VK Collector - manual login");
