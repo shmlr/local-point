@@ -2,23 +2,29 @@ import { chromium } from "playwright";
 import path from "node:path";
 import process from "node:process";
 import {
+  defaultEvidenceRoot,
+  defaultProfileDir,
   ensureDir,
   isoNow,
   normalizeLinks,
   safeStamp,
+  sanitizeUrl,
   sha256File,
+  summarizeBlockedRequests,
   writeJson,
   writeText
 } from "./lib.mjs";
+import {
+  STRICT_ALLOWED_METHODS,
+  classifyTransportRequest
+} from "./policy.mjs";
 
 const targetUrl =
   process.env.VK_TARGET_URL || "https://vk.com/palleta.store";
-const profileDir = path.resolve(
-  process.env.VK_PROFILE_DIR || ".local/vk-profile"
-);
-const evidenceRoot = path.resolve(
-  process.env.VK_EVIDENCE_DIR || "evidence"
-);
+const profileDir =
+  process.env.VK_PROFILE_DIR || defaultProfileDir();
+const evidenceRoot =
+  process.env.VK_EVIDENCE_DIR || defaultEvidenceRoot();
 const channel = process.env.VK_BROWSER_CHANNEL || "chrome";
 const maxScrolls = Number(process.env.VK_MAX_SCROLLS || 12);
 const scrollDelayMs = Number(process.env.VK_SCROLL_DELAY_MS || 1200);
@@ -30,10 +36,6 @@ await ensureDir(runDir);
 const blockedRequests = [];
 let context;
 
-function isReadOnlyMethod(method) {
-  return ["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
-}
-
 try {
   context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
@@ -41,22 +43,28 @@ try {
     viewport: { width: 1440, height: 1000 }
   });
 
-  // Hard safety boundary for audit runs:
-  // no POST/PUT/PATCH/DELETE network request is allowed.
+  // Strict transport boundary for the first pilot run.
+  // Important: some SPA read operations may use POST. We do not infer safety.
+  // Such requests are blocked, logged in sanitized form and reviewed later.
   await context.route("**/*", async (route) => {
     const request = route.request();
-    const method = request.method().toUpperCase();
+    const classification = classifyTransportRequest({
+      method: request.method(),
+      url: sanitizeUrl(request.url()),
+      resourceType: request.resourceType()
+    });
 
-    if (isReadOnlyMethod(method)) {
+    if (classification.decision === "ALLOW") {
       await route.continue();
       return;
     }
 
     blockedRequests.push({
       at: isoNow(),
-      method,
-      url: request.url(),
-      resourceType: request.resourceType()
+      method: classification.method,
+      url: classification.url,
+      resourceType: classification.resourceType,
+      policy: classification.policy
     });
 
     await route.abort("blockedbyclient");
@@ -93,7 +101,7 @@ try {
   await page.waitForTimeout(300);
 
   const title = await page.title();
-  const finalUrl = page.url();
+  const finalUrl = sanitizeUrl(page.url());
   const visibleText = await page.locator("body").innerText().catch(() => "");
 
   const links = normalizeLinks(
@@ -113,6 +121,8 @@ try {
   const status =
     blockerDetected || tooLittleContent ? "BLOCKED" : "COLLECTED_READ_ONLY";
 
+  const blockedSummary = summarizeBlockedRequests(blockedRequests);
+
   const snapshot = {
     schema_version: "0.1",
     collector: "local-point-vk-collector",
@@ -120,13 +130,19 @@ try {
     organization_id: "palleta",
     platform: "VK",
     source_type: "browser_observation",
-    target_url: targetUrl,
+    target_url: sanitizeUrl(targetUrl),
     final_url: finalUrl,
     observed_at: observedAt,
     status,
     synthetic: false,
+    local_storage: {
+      browser_profile: "LOCAL_USER_STORAGE",
+      evidence: "LOCAL_USER_STORAGE",
+      committed_to_git: false
+    },
     readonly_policy: {
-      allowed_methods: ["GET", "HEAD", "OPTIONS"],
+      policy: "STRICT_TRANSPORT_READ_ONLY",
+      allowed_methods: STRICT_ALLOWED_METHODS,
       blocked_non_read_requests: blockedRequests.length,
       policy_relaxed: false
     },
@@ -138,8 +154,9 @@ try {
     limitations: [
       "Platform observation is not automatically a current business fact.",
       "No POST/PUT/PATCH/DELETE request was allowed.",
+      "Some SPA read operations may use POST and can therefore be blocked in this strict first-run policy.",
       "No admin settings, messages or write actions are intentionally collected in v0.1.",
-      "If VK requires POST-based reads, this run may be partial or blocked; policy must not be relaxed automatically."
+      "The policy must not be relaxed automatically."
     ]
   };
 
@@ -147,11 +164,13 @@ try {
   const textPath = path.join(runDir, "visible-text.txt");
   const linksPath = path.join(runDir, "links.json");
   const blockedPath = path.join(runDir, "blocked-requests.json");
+  const summaryPath = path.join(runDir, "blocked-summary.json");
 
   await writeJson(snapshotPath, snapshot);
   await writeText(textPath, visibleText);
   await writeJson(linksPath, links);
   await writeJson(blockedPath, blockedRequests);
+  await writeJson(summaryPath, blockedSummary);
 
   const manifest = {
     schema_version: "0.1",
@@ -160,7 +179,8 @@ try {
       "snapshot.json": await sha256File(snapshotPath),
       "visible-text.txt": await sha256File(textPath),
       "links.json": await sha256File(linksPath),
-      "blocked-requests.json": await sha256File(blockedPath)
+      "blocked-requests.json": await sha256File(blockedPath),
+      "blocked-summary.json": await sha256File(summaryPath)
     }
   };
 
@@ -171,6 +191,7 @@ try {
   console.log("Visible text chars:", visibleText.length);
   console.log("Links:", links.length);
   console.log("Blocked non-read requests:", blockedRequests.length);
+  console.log("Blocked endpoint groups:", blockedSummary.length);
 
   if (status === "BLOCKED") {
     process.exitCode = 2;
