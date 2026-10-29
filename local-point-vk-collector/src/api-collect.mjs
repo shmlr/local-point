@@ -32,7 +32,7 @@ const result = {
   organization_id: "palleta",
   platform: "VK",
   target_screen_name: screenName,
-  api_version: "5.199",
+  api_version: "5.230",
   policy_relaxed: false,
   tokens: {
     service: serviceToken ? "PRESENT" : "MISSING",
@@ -42,26 +42,18 @@ const result = {
   gaps: []
 };
 
-if (!serviceToken) {
+const primaryToken = userToken || serviceToken;
+const primaryTokenType = userToken ? "user" : "service";
+
+if (!primaryToken) {
   result.status = "SOURCE_DATA_REQUIRED";
   result.gaps.push({
-    field: "VK_SERVICE_TOKEN",
-    reason:
-      "Required for official read-only community/profile/wall/address collection."
+    field: "VK_USER_TOKEN",
+    reason: "VK ID user token is required for the current read-only collector path."
   });
-
-  if (!userToken) {
-    result.gaps.push({
-      field: "VK_USER_TOKEN",
-      reason:
-        "Required only for market.get product extraction according to official VK API schema."
-    });
-  }
-
   await writeJson(path.join(runDir, "api-summary.json"), result);
   console.log("VK API evidence: SOURCE_DATA_REQUIRED");
-  console.log("Service token: MISSING");
-  console.log("User token:", userToken ? "PRESENT" : "MISSING");
+  console.log("User token: MISSING");
   console.log("Output:", runDir);
   process.exitCode = 3;
 } else {
@@ -69,8 +61,8 @@ if (!serviceToken) {
     const resolved = await callVkReadOnly({
       method: "utils.resolveScreenName",
       params: { screen_name: screenName },
-      token: serviceToken,
-      tokenType: "service"
+      token: primaryToken,
+      tokenType: primaryTokenType
     });
 
     result.sources.resolve = resolved;
@@ -102,8 +94,8 @@ if (!serviceToken) {
             "country"
           ]
         },
-        token: serviceToken,
-        tokenType: "service"
+        token: primaryToken,
+        tokenType: primaryTokenType
       }),
       callVkReadOnly({
         method: "groups.getAddresses",
@@ -111,8 +103,8 @@ if (!serviceToken) {
           group_id: groupId,
           count: 100
         },
-        token: serviceToken,
-        tokenType: "service"
+        token: primaryToken,
+        tokenType: primaryTokenType
       }),
       callVkReadOnly({
         method: "wall.get",
@@ -122,8 +114,8 @@ if (!serviceToken) {
           filter: "owner",
           extended: true
         },
-        token: serviceToken,
-        tokenType: "service"
+        token: primaryToken,
+        tokenType: primaryTokenType
       })
     ]);
 
