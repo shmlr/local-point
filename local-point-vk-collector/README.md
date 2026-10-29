@@ -1,4 +1,4 @@
-# Local Point VK Collector v0.1
+# Local Point VK Collector v0.2
 
 Local READ-ONLY evidence collector for VK community audits.
 
@@ -145,13 +145,41 @@ Included:
 - strict transport policy tests;
 - safe diagnostics for blocked endpoints.
 
-Not yet included:
-- stable post-level extraction;
-- products;
-- comments;
-- admin settings;
-- statistics;
-- private messages;
-- official VK API adapter.
+## Official VK API adapter v0.2
 
-Those are separate checkpoints after the first Palleta run proves the local browser path works.
+The browser pilot is complete. Broad browser POST remains blocked.
+
+A second collector now uses only official VK API methods from an exact semantic read-only allowlist.
+
+Setup a service token locally:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Setup-VKServiceToken.ps1
+```
+
+The script asks for VK APP ID and VK CLIENT SECRET locally. The client secret is not saved. The returned service token is stored with Windows DPAPI under the current Windows user.
+
+Run the API pilot:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-VKApiPilot.ps1
+```
+
+With a service token the API collector can read:
+- community identity/profile;
+- addresses;
+- up to 100 wall posts;
+- later, public comments through the same allowlist.
+
+Products are deliberately separate: official VK schema marks `market.get` as user-token only. The collector will report MARKET_ITEMS as SOURCE_DATA_REQUIRED until a separately approved user-token flow is added.
+
+See:
+- `docs/VK_API_READ_ONLY_GATE.md`
+- `docs/PALLETTA_BLOCKED_POST_REVIEW_2026-10-29.md`
+
+Still not included:
+- automatic post normalization to the final Local Point Evidence Contract;
+- market products without an approved user token;
+- admin settings;
+- private messages;
+- any VK write method.
