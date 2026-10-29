@@ -1,6 +1,10 @@
 export const VK_API_VERSION = "5.199";
 
 export const VK_READ_ONLY_METHODS = Object.freeze({
+  "apps.get": {
+    token_types: ["service", "user"],
+    purpose: "Validate service token against application metadata"
+  },
   "utils.resolveScreenName": {
     token_types: ["service", "user", "group"],
     purpose: "Resolve community screen name to VK object ID"
