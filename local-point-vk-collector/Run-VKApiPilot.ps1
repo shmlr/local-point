@@ -1,47 +1,35 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-$NpmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
-if (-not $NpmCmd) {
-  Write-Host "BLOCKED: npm.cmd was not found in PATH." -ForegroundColor Red
-  exit 2
+$SecretDir = Join-Path $env:LOCALAPPDATA "LocalPoint\secrets"
+$UserTokenFile = Join-Path $SecretDir "vk-user-token.xml"
+$ServiceTokenFile = Join-Path $SecretDir "vk-service-token.xml"
+
+function Read-DpapiSecureString([string]$Path) {
+  $secure = Import-Clixml -Path $Path
+  $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try {
+    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+  } finally {
+    if ($ptr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
+  }
 }
-
-$TokenFile = Join-Path $env:LOCALAPPDATA "LocalPoint\secrets\vk-service-token.xml"
-
-if (-not (Test-Path $TokenFile)) {
-  Write-Host "SOURCE_DATA_REQUIRED: VK service token is not configured." -ForegroundColor Yellow
-  Write-Host "Run first:"
-  Write-Host "  powershell -ExecutionPolicy Bypass -File .\Setup-VKServiceToken.ps1"
-  exit 3
-}
-
-$TokenSecure = Import-Clixml -Path $TokenFile
-$TokenPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($TokenSecure)
 
 try {
-  $TokenPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($TokenPtr)
-  $env:VK_SERVICE_TOKEN = $TokenPlain
+  if (Test-Path $UserTokenFile) { $env:VK_USER_TOKEN = Read-DpapiSecureString $UserTokenFile }
+  if (Test-Path $ServiceTokenFile) { $env:VK_SERVICE_TOKEN = Read-DpapiSecureString $ServiceTokenFile }
   $env:VK_SCREEN_NAME = "palleta.store"
 
   Write-Host "Local Point VK API Pilot" -ForegroundColor Cyan
   Write-Host "Target: palleta.store"
   Write-Host "Mode: OFFICIAL VK API / READ-ONLY ALLOWLIST"
+  Write-Host "User token:" $(if ($env:VK_USER_TOKEN) { "PRESENT" } else { "MISSING" })
   Write-Host ""
 
-  & $NpmCmd.Source run api:collect
-  $ExitCode = $LASTEXITCODE
-}
-finally {
+  & "C:\Program Files\nodejs\npm.cmd" run api:collect
+  exit $LASTEXITCODE
+} finally {
+  Remove-Item Env:VK_USER_TOKEN -ErrorAction SilentlyContinue
   Remove-Item Env:VK_SERVICE_TOKEN -ErrorAction SilentlyContinue
   Remove-Item Env:VK_SCREEN_NAME -ErrorAction SilentlyContinue
-
-  if ($TokenPtr -ne [IntPtr]::Zero) {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($TokenPtr)
-  }
-
-  Remove-Variable TokenPlain -ErrorAction SilentlyContinue
-  Remove-Variable TokenSecure -ErrorAction SilentlyContinue
 }
-
-exit $ExitCode
