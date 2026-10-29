@@ -104,12 +104,15 @@ Windows default:
 
 Files:
 
+- `run-summary.json` - single machine-readable result: PASS/BLOCKED, evidence counts and next action;
 - `snapshot.json` - provenance and run status;
 - `visible-text.txt` - visible page text;
 - `links.json` - discovered sanitized links;
 - `blocked-requests.json` - sanitized non-read requests blocked by policy;
 - `blocked-summary.json` - grouped endpoint summary for safe review;
 - `manifest.sha256.json` - hashes for evidence integrity.
+
+For routine review start with `run-summary.json`. Open raw blocked-request data only when the run requires diagnosis.
 
 ## Statuses
 
@@ -125,7 +128,8 @@ HTTP POST does not always mean a business-data write. Modern SPAs can use POST f
 For the first Palleta pilot we intentionally block all POST anyway.
 
 If the first run is BLOCKED:
-- inspect `blocked-summary.json`;
+- inspect `run-summary.json`;
+- then inspect `blocked-summary.json`;
 - identify only endpoints proven to be read-only;
 - add a narrow allowlist in a later reviewed change;
 - never enable generic POST access.
@@ -137,6 +141,7 @@ Included:
 - visible text;
 - sanitized links;
 - immutable evidence manifest;
+- one-file run summary;
 - strict transport policy tests;
 - safe diagnostics for blocked endpoints.
 
