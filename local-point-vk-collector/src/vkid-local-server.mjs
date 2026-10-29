@@ -30,7 +30,8 @@ const html = `<!doctype html>
     const loginBtn = document.getElementById('login');
     function status(text) { statusEl.textContent = text; }
 
-    if (!window.VKID) {
+    const VKID = window.VKIDSDK;
+    if (!VKID) {
       status('SDK_LOAD_FAIL: VK ID SDK не загрузился.');
       loginBtn.disabled = true;
     } else {
