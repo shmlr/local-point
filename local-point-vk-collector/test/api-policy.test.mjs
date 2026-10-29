@@ -33,13 +33,15 @@ test("unknown methods are denied", () => {
   );
 });
 
-test("VK token is sent in body, never in URL", async () => {
+test("VK token is sent only in Authorization header, never in URL or body", async () => {
   let capturedUrl = "";
   let capturedBody = "";
+  let capturedAuthorization = "";
 
   const fakeFetch = async (url, options) => {
     capturedUrl = String(url);
     capturedBody = String(options.body);
+    capturedAuthorization = String(options.headers.authorization || "");
     return {
       ok: true,
       json: async () => ({ response: { object_id: 1 } })
@@ -55,5 +57,6 @@ test("VK token is sent in body, never in URL", async () => {
   });
 
   assert.equal(capturedUrl.includes("SECRET_TEST_TOKEN"), false);
-  assert.equal(capturedBody.includes("SECRET_TEST_TOKEN"), true);
+  assert.equal(capturedBody.includes("SECRET_TEST_TOKEN"), false);
+  assert.equal(capturedAuthorization, "Bearer SECRET_TEST_TOKEN");
 });
