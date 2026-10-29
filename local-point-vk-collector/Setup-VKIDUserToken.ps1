@@ -3,7 +3,7 @@ Set-Location $PSScriptRoot
 
 $AppId = "54864900"
 $RedirectUri = "http://localhost"
-$SdkVersion = "2.6.1"
+$SdkVersion = '"2.6.1"'
 $SecretDir = Join-Path $env:LOCALAPPDATA "LocalPoint\secrets"
 $AccessFile = Join-Path $SecretDir "vk-user-token.xml"
 $RefreshFile = Join-Path $SecretDir "vk-user-refresh-token.xml"
@@ -22,6 +22,7 @@ function To-Base64Url([byte[]]$Bytes) {
 
 $CodeVerifier = New-RandomBase64Url 32
 $State = New-RandomBase64Url 24
+$SessionId = [guid]::NewGuid().ToString()
 $sha = [System.Security.Cryptography.SHA256]::Create()
 try {
   $challengeBytes = $sha.ComputeHash([System.Text.Encoding]::ASCII.GetBytes($CodeVerifier))
@@ -29,6 +30,12 @@ try {
   $sha.Dispose()
 }
 $CodeChallenge = To-Base64Url $challengeBytes
+
+$statsJson = @{
+  flow_source = "from_custom_auth"
+  session_id = $SessionId
+} | ConvertTo-Json -Compress
+$StatsInfo = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($statsJson))
 
 $params = [ordered]@{
   client_id = $AppId
@@ -40,6 +47,8 @@ $params = [ordered]@{
   app_id = $AppId
   v = $SdkVersion
   sdk_type = "vkid"
+  prompt = ""
+  stats_info = $StatsInfo
   localhost = "1"
 }
 
