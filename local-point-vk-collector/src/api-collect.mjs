@@ -117,7 +117,6 @@ if (!serviceToken) {
       callVkReadOnly({
         method: "wall.get",
         params: {
-          owner_id: ownerId,
           domain: screenName,
           count: 100,
           filter: "owner",
