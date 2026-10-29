@@ -8,46 +8,19 @@ New-Item -ItemType Directory -Force -Path $SecretDir | Out-Null
 
 Write-Host "Local Point VK - service token setup" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Enter VK APP ID."
-Write-Host "CLIENT SECRET is not stored or printed."
-Write-Host "The service token will be protected with Windows DPAPI for the current user."
+Write-Host "Paste the VK SERVICE ACCESS KEY from the app settings."
+Write-Host "The key is not printed and will be protected with Windows DPAPI."
 Write-Host ""
 
-$AppId = Read-Host "VK APP ID"
-if (-not ($AppId -match '^\d+$')) {
-  throw "VK APP ID must be numeric."
+$TokenSecure = Read-Host "VK SERVICE ACCESS KEY" -AsSecureString
+
+if (-not $TokenSecure) {
+  throw "VK service access key is required."
 }
 
-$ClientSecretSecure = Read-Host "VK CLIENT SECRET" -AsSecureString
-$SecretPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($ClientSecretSecure)
-
-try {
-  $ClientSecret = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($SecretPtr)
-
-  $Response = Invoke-RestMethod -Method Post -Uri "https://oauth.vk.com/access_token" -ContentType "application/x-www-form-urlencoded" -Body @{
-    client_id     = $AppId
-    client_secret = $ClientSecret
-    grant_type    = "client_credentials"
-  }
-}
-finally {
-  if ($SecretPtr -ne [IntPtr]::Zero) {
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($SecretPtr)
-  }
-  Remove-Variable ClientSecret -ErrorAction SilentlyContinue
-}
-
-if (-not $Response.access_token) {
-  throw "VK did not return a service access token."
-}
-
-$TokenSecure = ConvertTo-SecureString $Response.access_token -AsPlainText -Force
 $TokenSecure | Export-Clixml -Path $TokenFile
 
-Remove-Variable TokenSecure -ErrorAction SilentlyContinue
-Remove-Variable Response -ErrorAction SilentlyContinue
-
 Write-Host ""
-Write-Host "PASS: service token received and stored locally with Windows DPAPI." -ForegroundColor Green
+Write-Host "PASS: service access key stored locally with Windows DPAPI." -ForegroundColor Green
 Write-Host "Token file: $TokenFile"
-Write-Host "The token itself was not printed."
+Write-Host "The key itself was not printed."
