@@ -1,0 +1,51 @@
+{
+  "schema_version": "0.1",
+  "agent_id": "lp-collector-agent",
+  "purpose": "Run Local Point VK Collector in strict read-only mode",
+  "working_directory": "local-point-vk-collector",
+  "allowed_commands": [
+    {
+      "command": "powershell",
+      "args_exact": ["-ExecutionPolicy", "Bypass", "-File", ".\\Start-VKCollector.ps1"]
+    },
+    {
+      "command": "node",
+      "args_exact": ["src/doctor.mjs"]
+    },
+    {
+      "command": "node",
+      "args_exact": ["--test"]
+    },
+    {
+      "command": "node",
+      "args_exact": ["src/collect.mjs"]
+    },
+    {
+      "command": "node",
+      "args_exact": ["src/login.mjs"],
+      "requires_human_present": true
+    }
+  ],
+  "allowed_read_paths": [
+    "local-point-vk-collector/**",
+    "%LOCALAPPDATA%\\LocalPoint\\vk-evidence\\**"
+  ],
+  "allowed_write_paths": [
+    "%LOCALAPPDATA%\\LocalPoint\\vk-profile\\**",
+    "%LOCALAPPDATA%\\LocalPoint\\vk-evidence\\**"
+  ],
+  "forbidden_capabilities": [
+    "arbitrary_shell",
+    "arbitrary_browser",
+    "vk_write",
+    "vk_messages",
+    "credential_read",
+    "credential_export",
+    "captcha_bypass",
+    "policy_relaxation",
+    "git_merge",
+    "deploy"
+  ],
+  "stop_on_blocked": true,
+  "background_retry": false
+}
