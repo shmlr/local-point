@@ -1,4 +1,4 @@
-export const VK_API_VERSION = "5.199";
+export const VK_API_VERSION = "5.230";
 
 export const VK_READ_ONLY_METHODS = Object.freeze({
   "apps.get": {
