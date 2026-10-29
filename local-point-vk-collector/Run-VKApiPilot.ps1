@@ -3,15 +3,15 @@ Set-Location $PSScriptRoot
 
 $NpmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
 if (-not $NpmCmd) {
-  Write-Host "BLOCKED: npm.cmd не найден в PATH." -ForegroundColor Red
+  Write-Host "BLOCKED: npm.cmd was not found in PATH." -ForegroundColor Red
   exit 2
 }
 
 $TokenFile = Join-Path $env:LOCALAPPDATA "LocalPoint\secrets\vk-service-token.xml"
 
 if (-not (Test-Path $TokenFile)) {
-  Write-Host "SOURCE_DATA_REQUIRED: VK service token не настроен." -ForegroundColor Yellow
-  Write-Host "Сначала запустите:"
+  Write-Host "SOURCE_DATA_REQUIRED: VK service token is not configured." -ForegroundColor Yellow
+  Write-Host "Run first:"
   Write-Host "  powershell -ExecutionPolicy Bypass -File .\Setup-VKServiceToken.ps1"
   exit 3
 }
