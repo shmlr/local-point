@@ -1,6 +1,6 @@
 {
   "name": "local-point-vk-collector",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Local READ-ONLY evidence collector for VK community audits.",
@@ -12,6 +12,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "playwright": "1.64.1"
+    "playwright": "1.64.1",
+    "@vkid/sdk": "2.6.10"
   }
 }
