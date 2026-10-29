@@ -41,7 +41,7 @@ Official API collector:
 - tokens are never committed to Git;
 - tokens are never printed;
 - API URLs do not include tokens;
-- access tokens are sent in the request body to api.vk.com.
+- access tokens are sent only in the Authorization: Bearer header to api.vk.ru.
 
 ## Status behavior
 
@@ -55,7 +55,7 @@ No fallback reads browser cookies or exports session credentials.
 
 HTTP POST alone is not classified as a business write.
 For this API adapter, safety requires all of:
-1. official api.vk.com endpoint;
+1. official api.vk.ru endpoint;
 2. exact allowlisted VK API method;
 3. method semantics confirmed in official VK schema;
 4. compatible allowlisted token type;
