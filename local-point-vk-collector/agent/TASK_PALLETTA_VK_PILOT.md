@@ -4,7 +4,7 @@
 
 `LP Collector Agent v0.1`
 
-## Target
+## Fixed target
 
 `https://vk.com/palleta.store`
 
@@ -12,18 +12,26 @@
 
 Run one strict READ-ONLY evidence collection pass and return the collector result.
 
+## Only allowed execution
+
+From `local-point-vk-collector`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\agent\Run-PalletaPilot.ps1
+```
+
+Do not call Node, npm, another PowerShell script or another browser command directly.
+
 ## Procedure
 
-1. Enter `local-point-vk-collector`.
-2. Run:
-   `powershell -ExecutionPolicy Bypass -File .\Start-VKCollector.ps1`
-3. If manual VK login is required, pause for the human to complete login.
-4. Do not request credentials.
-5. After collection, read only the newest:
+1. Run the fixed command above.
+2. If manual VK login is requested by the collector, pause for the human.
+3. Do not request or handle credentials.
+4. After collection, read the newest:
    - `run-summary.json`
-   - `blocked-summary.json` if present/relevant
-6. Return the Output Contract from `LP_COLLECTOR_AGENT.md`.
-7. Stop.
+   - `blocked-summary.json` when relevant
+5. Return the Output Contract from `LP_COLLECTOR_AGENT.md`.
+6. Stop.
 
 ## Hard limits
 
@@ -31,10 +39,12 @@ Run one strict READ-ONLY evidence collection pass and return the collector resul
 - no edits;
 - no messages;
 - no admin changes;
+- no target change;
 - no policy relaxation;
 - no CAPTCHA bypass;
 - no retries that change permissions or transport policy;
-- no browser profile export.
+- no browser profile export;
+- no Git write or deployment.
 
 ## Success gate
 
