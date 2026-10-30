@@ -32,13 +32,29 @@ function safeName(value) {
 
 async function capture(page, label, url) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(2000);
+
+  let previousHeight = 0;
+  let stable = 0;
+  for (let i = 0; i < 10; i += 1) {
+    const height = await page.evaluate(() => document.body?.scrollHeight || 0).catch(() => 0);
+    if (height === previousHeight) stable += 1;
+    else stable = 0;
+    previousHeight = height;
+    if (stable >= 2) break;
+    await page.evaluate(() => window.scrollTo(0, document.body?.scrollHeight || 0)).catch(() => {});
+    await page.waitForTimeout(900);
+  }
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  await page.waitForTimeout(250);
 
   const title = await page.title().catch(() => "");
   const finalUrl = sanitizeUrl(page.url());
   const text = await page.locator("body").innerText().catch(() => "");
+  const html = await page.content().catch(() => "");
   const links = await page.locator("a[href]").evaluateAll(nodes =>
     nodes.map(node => ({
+      raw_href: node.getAttribute("href") || "",
       href: node.href,
       text: (node.innerText || node.textContent || "").trim()
     }))
@@ -46,7 +62,19 @@ async function capture(page, label, url) {
 
   const safeLinks = [];
   const seen = new Set();
+  const wallCandidates = new Set();
+  const idCandidates = new Set();
+
   for (const item of links) {
+    const raw = String(item.raw_href || "");
+    const absolute = String(item.href || "");
+    for (const source of [raw, absolute]) {
+      const wallMatches = source.match(/wall-?(\d+)_\d+/gi) || [];
+      for (const m of wallMatches) wallCandidates.add(m.replace(/^.*?(wall-?\d+_\d+).*$/i, "$1"));
+      const idMatch = source.match(/(?:club|public|market-)(\d+)/i);
+      if (idMatch) idCandidates.add(Number(idMatch[1]));
+    }
+
     const href = sanitizeUrl(item.href);
     if (!href || seen.has(href)) continue;
     seen.add(href);
@@ -54,6 +82,15 @@ async function capture(page, label, url) {
       href,
       text: String(item.text || "").replace(/\s+/g, " ").slice(0, 500)
     });
+  }
+
+  const htmlWallMatches = html.match(/wall-?(\d+)_\d+/gi) || [];
+  for (const m of htmlWallMatches) wallCandidates.add(m);
+
+  const htmlIdMatches = html.match(/(?:club|public|market-)(\d+)/gi) || [];
+  for (const m of htmlIdMatches) {
+    const id = Number((m.match(/(\d+)/) || [])[1]);
+    if (id) idCandidates.add(id);
   }
 
   const screenshot = path.join(runDir, safeName(label) + ".png");
@@ -66,6 +103,8 @@ async function capture(page, label, url) {
     title,
     visible_text_chars: text.length,
     links_count: safeLinks.length,
+    wall_candidates: [...wallCandidates],
+    id_candidates: [...idCandidates],
     text,
     links: safeLinks,
     screenshot: path.basename(screenshot)
@@ -106,27 +145,40 @@ try {
 
   const page = context.pages()[0] || await context.newPage();
 
-  const desktop = await capture(page, "desktop-main", "https://vk.com/palleta.store");
-  const mobile = await capture(page, "mobile-main", "https://m.vk.com/palleta.store");
+  const seedPages = [
+    ["desktop-main", "https://vk.com/palleta.store"],
+    ["mobile-main", "https://m.vk.com/palleta.store"],
+    ["mobile-offset-10", "https://m.vk.com/palleta.store?offset=10"],
+    ["mobile-offset-20", "https://m.vk.com/palleta.store?offset=20"]
+  ];
 
-  const allLinks = [...desktop.links, ...mobile.links];
-  const wallLinks = [...new Set(
-    allLinks
-      .map(x => x.href)
-      .filter(href => /\/wall-?\d+_\d+$/i.test(href))
-  )].slice(0, 20);
+  for (const [label, url] of seedPages) {
+    await capture(page, label, url);
+  }
 
-  let groupId = null;
-  for (const href of wallLinks) {
-    const match = href.match(/\/wall-(\d+)_\d+$/i);
-    if (match) {
-      groupId = Number(match[1]);
-      break;
+  const wallLinks = new Set();
+  const idCandidates = new Set();
+
+  for (const p of pages) {
+    for (const href of p.links) {
+      if (/\/wall-?\d+_\d+$/i.test(href.href)) wallLinks.add(href.href);
+    }
+    for (const wall of p.wall_candidates || []) {
+      const canonical = wall.startsWith("wall") ? "https://vk.com/" + wall : null;
+      if (canonical) wallLinks.add(canonical);
+      const m = wall.match(/wall-?(\d+)_\d+/i);
+      if (m) idCandidates.add(Number(m[1]));
+    }
+    for (const id of p.id_candidates || []) {
+      if (Number.isFinite(id) && id > 0) idCandidates.add(id);
     }
   }
 
-  for (let i = 0; i < Math.min(wallLinks.length, 10); i += 1) {
-    await capture(page, "wall-" + (i + 1), wallLinks[i]);
+  const wallList = [...wallLinks].slice(0, 20);
+  const groupId = [...idCandidates][0] || null;
+
+  for (let i = 0; i < Math.min(wallList.length, 10); i += 1) {
+    await capture(page, "wall-" + (i + 1), wallList[i]);
   }
 
   if (groupId) {
@@ -144,7 +196,7 @@ try {
     status: "COLLECTED_READ_ONLY",
     group_id_from_public_wall_link: groupId,
     pages_captured: pages.length,
-    wall_links_found: wallLinks.length,
+    wall_links_found: wallList.length,
     blocked_non_read_requests: blockedRequests.length,
     policy_relaxed: false,
     api_gate: {
@@ -183,7 +235,7 @@ try {
   console.log("VK public browser audit: COLLECTED_READ_ONLY");
   console.log("Output:", runDir);
   console.log("Pages captured:", pages.length);
-  console.log("Wall links found:", wallLinks.length);
+  console.log("Wall links found:", wallList.length);
   console.log("Group ID:", groupId ?? "NOT_FOUND");
   console.log("Blocked non-read requests:", blockedRequests.length);
   console.log("API gate: BLOCKED_BY_TOKEN_PROFILE_TYPE");
