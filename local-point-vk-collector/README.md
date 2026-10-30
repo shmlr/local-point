@@ -183,3 +183,33 @@ Still not included:
 - admin settings;
 - private messages;
 - any VK write method.
+
+## Palleta one-shot video publisher v0.1
+
+This is a separate guarded write path. It does not change the default READ-ONLY collector policy.
+
+Fixed target:
+- `palleta.store`
+- group ID `197164485`
+
+Allowed write sequence:
+1. `video.save` for group `197164485`, with `wallpost=false`;
+2. upload one MP4 to the returned VK upload URL;
+3. `wall.post` to owner `-197164485`, from the group, with exactly one Palleta-owned video attachment and no post text.
+
+All other VK write methods remain blocked.
+
+Dry run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4"
+```
+
+Execute:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -Execute
+```
+
+See `docs/VK_PALLETTA_PUBLISH_GATE.md` before first live use.
+
