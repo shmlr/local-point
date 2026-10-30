@@ -18,6 +18,8 @@ import { classifyTransportRequest } from "./policy.mjs";
 const profileDir = process.env.VK_PROFILE_DIR || defaultProfileDir();
 const evidenceRoot = process.env.VK_EVIDENCE_DIR || defaultEvidenceRoot();
 const channel = process.env.VK_BROWSER_CHANNEL || "chrome";
+const targetUrl = process.env.VK_TARGET_URL || "https://vk.com/palleta.store";
+const suppliedGroupId = Number(process.env.VK_GROUP_ID || 0) || null;
 const observedAt = isoNow();
 const runDir = path.join(evidenceRoot, "public-" + safeStamp(observedAt));
 await ensureDir(runDir);
@@ -146,10 +148,10 @@ try {
   const page = context.pages()[0] || await context.newPage();
 
   const seedPages = [
-    ["desktop-main", "https://vk.com/palleta.store"],
-    ["mobile-main", "https://m.vk.com/palleta.store"],
-    ["mobile-offset-10", "https://m.vk.com/palleta.store?offset=10"],
-    ["mobile-offset-20", "https://m.vk.com/palleta.store?offset=20"]
+    ["desktop-main", targetUrl],
+    ["mobile-main", targetUrl.replace("https://vk.com/", "https://m.vk.com/")],
+    ["mobile-offset-10", targetUrl.replace("https://vk.com/", "https://m.vk.com/") + "?offset=10"],
+    ["mobile-offset-20", targetUrl.replace("https://vk.com/", "https://m.vk.com/") + "?offset=20"]
   ];
 
   for (const [label, url] of seedPages) {
@@ -176,7 +178,20 @@ try {
   }
 
   const evidenceIds = [...new Set(communityIdEvidence.map(x => x.id))];
-  const groupId = evidenceIds.length === 1 ? evidenceIds[0] : null;
+  const detectedGroupId = evidenceIds.length === 1 ? evidenceIds[0] : null;
+
+  if (suppliedGroupId && detectedGroupId && suppliedGroupId !== detectedGroupId) {
+    throw new Error(
+      "GROUP_ID_CONFLICT supplied=" + suppliedGroupId + " detected=" + detectedGroupId
+    );
+  }
+
+  const groupId = detectedGroupId || suppliedGroupId;
+  const groupIdStatus = detectedGroupId
+    ? "CONFIRMED_FROM_SELF_LINKS"
+    : suppliedGroupId
+      ? "CONFIRMED_FROM_PRIOR_EVIDENCE"
+      : "UNVERIFIED";
 
   for (const p of pages) {
     for (const href of p.links) {
@@ -210,10 +225,10 @@ try {
     collector_mode: "PUBLIC_BROWSER_GET_ONLY",
     observed_at: observedAt,
     organization_id: "palleta",
-    target: "palleta.store",
+    target: sanitizeUrl(targetUrl),
     status: "COLLECTED_READ_ONLY",
     group_id: groupId,
-    group_id_status: groupId ? "CONFIRMED_FROM_SELF_LINKS" : "UNVERIFIED",
+    group_id_status: groupIdStatus,
     group_id_evidence: communityIdEvidence,
     pages_captured: pages.length,
     wall_links_found: wallList.length,
@@ -257,7 +272,7 @@ try {
   console.log("Pages captured:", pages.length);
   console.log("Wall links found:", wallList.length);
   console.log("Group ID:", groupId ?? "NOT_FOUND");
-  console.log("Group ID status:", groupId ? "CONFIRMED_FROM_SELF_LINKS" : "UNVERIFIED");
+  console.log("Group ID status:", groupIdStatus);
   console.log("Blocked non-read requests:", blockedRequests.length);
   console.log("API gate: BLOCKED_BY_TOKEN_PROFILE_TYPE");
 } catch (error) {
