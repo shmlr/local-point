@@ -1,12 +1,11 @@
-$ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
-
 param(
   [Parameter(Mandatory = $true)]
   [string]$VideoPath,
 
   [switch]$Execute
 )
+$ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
 
 $SecretDir = Join-Path $env:LOCALAPPDATA "LocalPoint\secrets"
 $UserTokenFile = Join-Path $SecretDir "vk-user-token.xml"
