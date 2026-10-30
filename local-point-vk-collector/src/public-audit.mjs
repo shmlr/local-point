@@ -157,25 +157,43 @@ try {
   }
 
   const wallLinks = new Set();
-  const idCandidates = new Set();
+
+  const mainPage = pages.find(p => p.label === "desktop-main");
+  const communityIdEvidence = [];
+  if (mainPage) {
+    for (const link of mainPage.links || []) {
+      const href = String(link.href || "");
+      for (const re of [/reviews-(\d+)/i, /\/gim(\d+)/i, /\/cart(\d+)/i]) {
+        const m = href.match(re);
+        if (m) {
+          communityIdEvidence.push({
+            source: href,
+            id: Number(m[1])
+          });
+        }
+      }
+    }
+  }
+
+  const evidenceIds = [...new Set(communityIdEvidence.map(x => x.id))];
+  const groupId = evidenceIds.length === 1 ? evidenceIds[0] : null;
 
   for (const p of pages) {
     for (const href of p.links) {
-      if (/\/wall-?\d+_\d+$/i.test(href.href)) wallLinks.add(href.href);
+      if (/\/wall-?\d+_\d+$/i.test(href.href)) {
+        const m = href.href.match(/\/wall-(\d+)_\d+$/i);
+        if (groupId && m && Number(m[1]) === groupId) wallLinks.add(href.href);
+      }
     }
     for (const wall of p.wall_candidates || []) {
-      const canonical = wall.startsWith("wall") ? "https://vk.com/" + wall : null;
-      if (canonical) wallLinks.add(canonical);
-      const m = wall.match(/wall-?(\d+)_\d+/i);
-      if (m) idCandidates.add(Number(m[1]));
-    }
-    for (const id of p.id_candidates || []) {
-      if (Number.isFinite(id) && id > 0) idCandidates.add(id);
+      const m = wall.match(/wall-(\d+)_\d+/i);
+      if (groupId && m && Number(m[1]) === groupId) {
+        wallLinks.add("https://vk.com/" + wall);
+      }
     }
   }
 
   const wallList = [...wallLinks].slice(0, 20);
-  const groupId = [...idCandidates][0] || null;
 
   for (let i = 0; i < Math.min(wallList.length, 10); i += 1) {
     await capture(page, "wall-" + (i + 1), wallList[i]);
@@ -194,7 +212,9 @@ try {
     organization_id: "palleta",
     target: "palleta.store",
     status: "COLLECTED_READ_ONLY",
-    group_id_from_public_wall_link: groupId,
+    group_id: groupId,
+    group_id_status: groupId ? "CONFIRMED_FROM_SELF_LINKS" : "UNVERIFIED",
+    group_id_evidence: communityIdEvidence,
     pages_captured: pages.length,
     wall_links_found: wallList.length,
     blocked_non_read_requests: blockedRequests.length,
@@ -237,6 +257,7 @@ try {
   console.log("Pages captured:", pages.length);
   console.log("Wall links found:", wallList.length);
   console.log("Group ID:", groupId ?? "NOT_FOUND");
+  console.log("Group ID status:", groupId ? "CONFIRMED_FROM_SELF_LINKS" : "UNVERIFIED");
   console.log("Blocked non-read requests:", blockedRequests.length);
   console.log("API gate: BLOCKED_BY_TOKEN_PROFILE_TYPE");
 } catch (error) {
