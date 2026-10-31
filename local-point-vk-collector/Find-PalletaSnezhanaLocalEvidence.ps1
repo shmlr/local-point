@@ -1,9 +1,9 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [int]$Days = 45,
   [int]$MaxFiles = 500
 )
+
+$ErrorActionPreference = "Stop"
 
 $Needle = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("0KHQvdC10LbQsNC90LA="))
 $Cutoff = (Get-Date).AddDays(-[Math]::Abs($Days))
@@ -25,7 +25,11 @@ foreach ($Root in $Roots) {
     }
 }
 
-$Files = @($Files | Sort-Object LastWriteTime -Descending, FullName -Unique | Select-Object -First $MaxFiles)
+$Files = @(
+  $Files |
+    Sort-Object -Property @{Expression="LastWriteTime"; Descending=$true}, @{Expression="FullName"; Descending=$false} -Unique |
+    Select-Object -First $MaxFiles
+)
 
 $Results = New-Object System.Collections.Generic.List[object]
 
