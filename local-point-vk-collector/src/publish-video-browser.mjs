@@ -145,6 +145,21 @@ async function findComposer(page) {
   throw new Error("VK_POST_COMPOSER_NOT_FOUND");
 }
 
+async function openWallPostFromCreateMenu(page) {
+  const postOptions = page.getByRole("button", { name: /^пост$/i });
+  const count = await postOptions.count().catch(() => 0);
+  const visible = [];
+  for (let i = 0; i < count; i += 1) {
+    const item = postOptions.nth(i);
+    if (await item.isVisible().catch(() => false)) visible.push(item);
+  }
+  if (visible.length !== 1) {
+    throw new Error("VK_CREATE_MENU_WALL_POST_COUNT_" + visible.length);
+  }
+  await visible[0].click();
+  await page.waitForTimeout(1200);
+}
+
 async function findVideoFileInput(page) {
   const inputs = page.locator('input[type="file"]');
   const count = await inputs.count();
@@ -232,23 +247,9 @@ try {
   await composerLocator.click();
   await page.waitForTimeout(1000);
 
-  if (diagnose && composerKind === "CREATE_MENU") {
-    const evidenceDir = path.join(defaultEvidenceRoot(), "publish-diagnose-create-" + safeStamp(isoNow()));
-    await ensureDir(evidenceDir);
-
-    const ui = await collectUiDiagnostics(page);
-    const screenshotPath = path.join(evidenceDir, "create-menu.png");
-    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
-    await writeJson(path.join(evidenceDir, "create-menu.json"), ui);
-
-    console.log("PALLETTA_VK_DIAGNOSE=PASS");
-    console.log("DIAG_STAGE=CREATE_MENU_OPENED");
-    console.log("DIAG_PATH=" + evidenceDir);
-    console.log("PAGE_TITLE=" + ui.title);
-    console.log("PAGE_URL=" + ui.final_url);
-    console.log("BODY_SAMPLE=" + ui.body_text_sample);
-    console.log("INTERESTING_CONTROLS_JSON=" + JSON.stringify(ui.interesting_controls));
-    process.exit(0);
+  if (composerKind === "CREATE_MENU") {
+    stage = "SELECT_WALL_POST";
+    await openWallPostFromCreateMenu(page);
   }
 
   if (diagnose) {
@@ -288,8 +289,12 @@ try {
     await writeJson(path.join(evidenceDir, "diagnostic.json"), diagnostic);
 
     console.log("PALLETTA_VK_DIAGNOSE=PASS");
-    console.log("DIAG_STAGE=COMPOSER_OPENED");
+    console.log("DIAG_STAGE=WALL_POST_COMPOSER_OPENED");
     console.log("FILE_INPUT_COUNT=" + inputCount);
+    console.log("FILE_INPUTS_JSON=" + JSON.stringify(inputAccept));
+    const ui = await collectUiDiagnostics(page);
+    console.log("BODY_SAMPLE=" + ui.body_text_sample);
+    console.log("INTERESTING_CONTROLS_JSON=" + JSON.stringify(ui.interesting_controls));
     console.log("DIAG_PATH=" + evidenceDir);
     process.exit(0);
   }
