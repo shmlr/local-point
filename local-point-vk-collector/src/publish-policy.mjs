@@ -1,3 +1,4 @@
+import { renderPalletaApprovedReelTemplate } from "./palleta-post-template.mjs";
 export const PALLETTA_GROUP_ID = 197164485;
 export const PALLETTA_OWNER_ID = -197164485;
 export const PALLETTA_SCREEN_NAME = "palleta.store";
@@ -24,36 +25,15 @@ export function assertPalletaPostMessage(message) {
   const text = String(message || "").trim();
   if (!text) throw new Error("PALLETTA_POST_TEXT_REQUIRED");
 
-  const required = [
-    "ВСЕГДА НИЗКИЕ ЦЕНЫ!",
-    "Снежана",
-    "5 кг",
-    "Махачкала, проспект Петра I, 49.",
-    "Приходите в «Паллету»!",
-    "Без торговой наценки продаётся часть ассортимента.",
-    "Перечень товаров может меняться.",
-    "Цены и наличие актуальны на момент публикации."
-  ];
-
-  for (const phrase of required) {
-    if (!text.includes(phrase)) {
-      throw new Error("PALLETTA_POST_TEXT_MISSING_REQUIRED_PHRASE:" + phrase);
-    }
+  const lines = text.split(/\r?\n/);
+  const productLine = lines.find(line => /^🌾 МУКА СНЕЖАНА, 5 КГ - \d{1,6},\d{2} ₽$/.test(line.trim()));
+  if (!productLine) {
+    throw new Error("PALLETTA_POST_TEXT_PRODUCT_LINE_INVALID");
   }
 
-  if (!/\d+[,.]\d{2}\s*₽/.test(text)) {
-    throw new Error("PALLETTA_POST_TEXT_PRICE_REQUIRED");
-  }
-
-  const forbidden = [
-    /закупочн/i,
-    /себестоим/i,
-    /\bмарж/i,
-    /самая низкая цена/i,
-    /нигде дешевле/i
-  ];
-  for (const re of forbidden) {
-    if (re.test(text)) throw new Error("PALLETTA_POST_TEXT_FORBIDDEN_CLAIM");
+  const expected = renderPalletaApprovedReelTemplate(productLine.trim()).trim();
+  if (text !== expected) {
+    throw new Error("PALLETTA_POST_TEXT_NOT_APPROVED_TEMPLATE");
   }
 
   return text;
