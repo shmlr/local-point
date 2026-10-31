@@ -1,11 +1,11 @@
 param(
   [string]$VideoPath,
-  [string]$PostTextPath,
+  [string]$FactsPath,
   [switch]$Execute,
   [switch]$Diagnose
 )
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "0.2.0"
+$RunnerVersion = "0.3.0"
 Set-Location $PSScriptRoot
 Write-Host ("PALLETTA_RUNNER_VERSION=" + $RunnerVersion) -ForegroundColor DarkGray
 
@@ -66,10 +66,10 @@ try {
   $env:VK_VIDEO_PATH = $ResolvedVideo
 
   if (-not $Diagnose) {
-    if (-not $PostTextPath) { throw "PostTextPath is required for dry-run and live publish." }
-    if (-not (Test-Path $PostTextPath)) { throw "Post text file not found: $PostTextPath" }
-    $ResolvedPostText = (Resolve-Path $PostTextPath).Path
-    $env:VK_POST_TEXT_PATH = $ResolvedPostText
+    if (-not $FactsPath) { throw "FactsPath is required for dry-run and live publish." }
+    if (-not (Test-Path $FactsPath)) { throw "Facts file not found: $FactsPath" }
+    $ResolvedFacts = (Resolve-Path $FactsPath).Path
+    $env:VK_PRODUCT_FACTS_PATH = $ResolvedFacts
   }
 
   if ($Diagnose) {
@@ -80,7 +80,6 @@ try {
   } elseif ($Execute) {
     $env:VK_PUBLISH_APPROVAL = "PALLETTA_VIDEO_ONCE"
     Remove-Item Env:VK_PUBLISH_DIAGNOSE -ErrorAction SilentlyContinue
-  Remove-Item Env:VK_POST_TEXT_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
     Write-Host "Mode: LOCAL PROFILE / PUBLISH ONE VIDEO TO PALLETTA ONLY" -ForegroundColor Yellow
   } else {
@@ -91,7 +90,7 @@ try {
   }
 
   Write-Host ("Video: " + $ResolvedVideo)
-  if (-not $Diagnose) { Write-Host ("Post text: " + $ResolvedPostText) }
+  if (-not $Diagnose) { Write-Host ("Facts: " + $ResolvedFacts) }
   & "C:\Program Files\nodejs\node.exe" ".\src\publish-video-browser.mjs"
   exit $LASTEXITCODE
 } finally {
@@ -99,4 +98,5 @@ try {
   Remove-Item Env:VK_PUBLISH_APPROVAL -ErrorAction SilentlyContinue
   Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
   Remove-Item Env:VK_PUBLISH_DIAGNOSE -ErrorAction SilentlyContinue
+  Remove-Item Env:VK_PRODUCT_FACTS_PATH -ErrorAction SilentlyContinue
 }
