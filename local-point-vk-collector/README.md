@@ -193,7 +193,7 @@ Fixed target:
 - group ID `197164485`
 
 Allowed write sequence:
-1. load and validate one pre-approved UTF-8 Palleta post text;
+1. validate fresh product facts and render the exact approved Palleta Reel template;
 2. `video.save` for group `197164485`, with `wallpost=false`;
 3. upload one MP4 to the returned VK upload URL;
 4. `wall.post` to owner `-197164485`, from the group, with exactly one Palleta-owned video attachment and the validated post text.
@@ -203,13 +203,13 @@ All other VK write methods remain blocked.
 Dry run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -PostTextPath "C:\path\to\post.txt"
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -FactsPath "C:\path\to\facts.json"
 ```
 
 Execute:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -PostTextPath "C:\path\to\post.txt" -Execute
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -FactsPath "C:\path\to\facts.json" -Execute
 ```
 
 See `docs/VK_PALLETTA_PUBLISH_GATE.md` before first live use.
@@ -226,4 +226,4 @@ For the current Snezhana 5 kg Reel, live publication is fail-closed until the ca
 - the approved CTA `Приходите в «Паллету»!`;
 - the approved legal footnote.
 
-The caption is read from a separate UTF-8 text file. The publisher does not invent or silently rewrite it.
+The publisher does not accept free-form advertising copy. It renders the caption deterministically from the approved template and verified facts. The example facts file is blocked by default until current price and stock are confirmed.
