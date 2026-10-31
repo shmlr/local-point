@@ -183,3 +183,47 @@ Still not included:
 - admin settings;
 - private messages;
 - any VK write method.
+
+## Palleta one-shot video publisher v0.1
+
+This is a separate guarded write path. It does not change the default READ-ONLY collector policy.
+
+Fixed target:
+- `palleta.store`
+- group ID `197164485`
+
+Allowed write sequence:
+1. validate fresh product facts and render the exact approved Palleta Reel template;
+2. `video.save` for group `197164485`, with `wallpost=false`;
+3. upload one MP4 to the returned VK upload URL;
+4. `wall.post` to owner `-197164485`, from the group, with exactly one Palleta-owned video attachment and the validated post text.
+
+All other VK write methods remain blocked.
+
+Dry run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -FactsPath "C:\path\to\facts.json"
+```
+
+Execute:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -FactsPath "C:\path\to\facts.json" -Execute
+```
+
+See `docs/VK_PALLETTA_PUBLISH_GATE.md` before first live use.
+
+
+
+### Palleta caption gate
+
+For the current Snezhana 5 kg Reel, live publication is fail-closed until the caption has:
+- the approved opening: `ВСЕГДА НИЗКИЕ ЦЕНЫ!`;
+- `Снежана` and `5 кг`;
+- a verified current retail price;
+- the canonical address `Махачкала, проспект Петра I, 49.`;
+- the approved CTA `Приходите в «Паллету»!`;
+- the approved legal footnote.
+
+The publisher does not accept free-form advertising copy. It renders the caption deterministically from the approved template and verified facts. The example facts file is blocked by default until current price and stock are confirmed.
