@@ -163,18 +163,34 @@ async function openWallPostFromCreateMenu(page) {
 async function findVideoFileInput(page) {
   const inputs = page.locator('input[type="file"]');
   const count = await inputs.count();
-  const matches = [];
+
+  const explicitVideo = [];
+  const generic = [];
+
   for (let i = 0; i < count; i += 1) {
     const input = inputs.nth(i);
     const accept = String(await input.getAttribute("accept").catch(() => "") || "").toLowerCase();
-    if (!accept || accept.includes("video") || accept.includes("mp4")) {
-      matches.push(input);
+
+    if (accept.includes("video") || accept.includes("mp4")) {
+      explicitVideo.push(input);
+    } else if (!accept) {
+      generic.push(input);
     }
   }
-  if (matches.length !== 1) {
-    throw new Error("VK_VIDEO_FILE_INPUT_COUNT_" + matches.length);
+
+  if (explicitVideo.length === 1) {
+    return explicitVideo[0];
   }
-  return matches[0];
+
+  if (explicitVideo.length > 1) {
+    throw new Error("VK_EXPLICIT_VIDEO_FILE_INPUT_COUNT_" + explicitVideo.length);
+  }
+
+  if (generic.length === 1) {
+    return generic[0];
+  }
+
+  throw new Error("VK_VIDEO_FILE_INPUT_COUNT_" + (explicitVideo.length + generic.length));
 }
 
 async function findPublishButton(page) {
