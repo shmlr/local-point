@@ -146,18 +146,35 @@ async function findComposer(page) {
 }
 
 async function openWallPostFromCreateMenu(page) {
-  const postOptions = page.getByRole("button", { name: /^пост$/i });
-  const count = await postOptions.count().catch(() => 0);
-  const visible = [];
-  for (let i = 0; i < count; i += 1) {
-    const item = postOptions.nth(i);
-    if (await item.isVisible().catch(() => false)) visible.push(item);
+  const deadline = Date.now() + 10000;
+
+  while (Date.now() < deadline) {
+    const candidates = page.locator('[role="button"]');
+    const count = await candidates.count().catch(() => 0);
+    const visiblePost = [];
+
+    for (let i = 0; i < count; i += 1) {
+      const item = candidates.nth(i);
+      const text = String(await item.innerText().catch(() => "") || "").trim().replace(/\s+/g, " ");
+      if (/^пост$/i.test(text) && await item.isVisible().catch(() => false)) {
+        visiblePost.push(item);
+      }
+    }
+
+    if (visiblePost.length === 1) {
+      await visiblePost[0].click();
+      await page.waitForTimeout(1200);
+      return;
+    }
+
+    if (visiblePost.length > 1) {
+      throw new Error("VK_CREATE_MENU_WALL_POST_COUNT_" + visiblePost.length);
+    }
+
+    await page.waitForTimeout(250);
   }
-  if (visible.length !== 1) {
-    throw new Error("VK_CREATE_MENU_WALL_POST_COUNT_" + visible.length);
-  }
-  await visible[0].click();
-  await page.waitForTimeout(1200);
+
+  throw new Error("VK_CREATE_MENU_WALL_POST_TIMEOUT");
 }
 
 async function findVideoFileInput(page) {
