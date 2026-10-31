@@ -20,6 +20,7 @@ $files = @(
   @{ Remote = "src/publish-video-browser.mjs"; Local = ".\src\publish-video-browser.mjs" },
   @{ Remote = "Run-PalletaVideoPublish.ps1"; Local = ".\Run-PalletaVideoPublish.ps1" },
   @{ Remote = "Run-PalletaVideoBrowserPublish.ps1"; Local = ".\Run-PalletaVideoBrowserPublish.ps1" },
+  @{ Remote = "Find-PalletaSnezhanaLocalEvidence.ps1"; Local = ".\Find-PalletaSnezhanaLocalEvidence.ps1" },
   @{ Remote = "test/palleta-post-template.test.mjs"; Local = ".\test\palleta-post-template.test.mjs" },
   @{ Remote = "test/publish-policy.test.mjs"; Local = ".\test\publish-policy.test.mjs" },
   @{ Remote = "examples/Palleta_Snezhana_5kg_facts.json"; Local = ".\examples\Palleta_Snezhana_5kg_facts.json" },
