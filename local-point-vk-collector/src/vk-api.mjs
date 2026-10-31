@@ -25,7 +25,7 @@ export async function callVkReadOnly({
   body.set("access_token", token);
   body.set("v", VK_API_VERSION);
 
-  const response = await fetch(`${API_ROOT}/${method}`, {
+  const response = await fetchImpl(`${API_ROOT}/${method}`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
