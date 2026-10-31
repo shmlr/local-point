@@ -10,7 +10,7 @@ export const VK_PALLETTA_WRITE_METHODS = Object.freeze({
   },
   "wall.post": {
     token_types: ["user"],
-    purpose: "Publish one attachment-only video post to the Palleta community wall"
+    purpose: "Publish one approved text + one video attachment to the Palleta community wall"
   }
 });
 
@@ -18,6 +18,45 @@ function normalizeBool(value) {
   if (value === true || value === 1 || value === "1") return true;
   if (value === false || value === 0 || value === "0" || value === undefined || value === null) return false;
   return Boolean(value);
+}
+
+export function assertPalletaPostMessage(message) {
+  const text = String(message || "").trim();
+  if (!text) throw new Error("PALLETTA_POST_TEXT_REQUIRED");
+
+  const required = [
+    "ВСЕГДА НИЗКИЕ ЦЕНЫ!",
+    "Снежана",
+    "5 кг",
+    "Махачкала, проспект Петра I, 49.",
+    "Приходите в «Паллету»!",
+    "Без торговой наценки продаётся часть ассортимента.",
+    "Перечень товаров может меняться.",
+    "Цены и наличие актуальны на момент публикации."
+  ];
+
+  for (const phrase of required) {
+    if (!text.includes(phrase)) {
+      throw new Error("PALLETTA_POST_TEXT_MISSING_REQUIRED_PHRASE:" + phrase);
+    }
+  }
+
+  if (!/\d+[,.]\d{2}\s*₽/.test(text)) {
+    throw new Error("PALLETTA_POST_TEXT_PRICE_REQUIRED");
+  }
+
+  const forbidden = [
+    /закупочн/i,
+    /себестоим/i,
+    /\bмарж/i,
+    /самая низкая цена/i,
+    /нигде дешевле/i
+  ];
+  for (const re of forbidden) {
+    if (re.test(text)) throw new Error("PALLETTA_POST_TEXT_FORBIDDEN_CLAIM");
+  }
+
+  return text;
 }
 
 function assertAllowedKeys(params, allowed) {
@@ -51,7 +90,7 @@ export function assertPalletaWriteMethod(method, tokenType, params = {}) {
   }
 
   if (method === "wall.post") {
-    assertAllowedKeys(params, ["owner_id", "from_group", "attachments", "guid"]);
+    assertAllowedKeys(params, ["owner_id", "from_group", "attachments", "guid", "message"]);
     if (Number(params.owner_id) !== PALLETTA_OWNER_ID) {
       throw new Error("WALL_POST_OWNER_ID_BLOCKED");
     }
@@ -69,6 +108,7 @@ export function assertPalletaWriteMethod(method, tokenType, params = {}) {
     if (!String(params.guid || "").startsWith("localpoint-palleta-video-")) {
       throw new Error("WALL_POST_GUID_REQUIRED");
     }
+    assertPalletaPostMessage(params.message);
   }
 
   return policy;
