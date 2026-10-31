@@ -1,5 +1,4 @@
 param(
-  [Parameter(Mandatory = $true)]
   [string]$VideoPath,
 
   [switch]$Execute
@@ -25,6 +24,33 @@ function Read-DpapiSecureString([string]$Path) {
 try {
   if (-not (Test-Path $UserTokenFile)) {
     throw "VK user token not found at $UserTokenFile"
+  }
+
+  if (-not $VideoPath) {
+    $TargetName = "Паллета_Reels_мука_Снежана_2_5_10кг.mp4"
+    $SearchRoots = @(
+      $PSScriptRoot,
+      (Join-Path $HOME "Downloads"),
+      (Join-Path $HOME "Desktop"),
+      (Join-Path $HOME "Documents"),
+      "D:\R01-Agent-Workspace",
+      "D:\Файлы проектов",
+      "D:\Проекты"
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+
+    $Found = $null
+    foreach ($Root in $SearchRoots) {
+      $Found = Get-ChildItem -Path $Root -Filter $TargetName -File -Recurse -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+      if ($Found) { break }
+    }
+
+    if ($Found) {
+      $VideoPath = $Found.FullName
+      Write-Host ("Video auto-detected: " + $VideoPath) -ForegroundColor Green
+    } else {
+      throw "Video file not found automatically: $TargetName"
+    }
   }
 
   if (-not (Test-Path $VideoPath)) {
