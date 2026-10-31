@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import path from "node:path";
 import process from "node:process";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import {
   defaultEvidenceRoot,
   defaultProfileDir,
@@ -13,7 +13,8 @@ import {
 import {
   PALLETTA_APPROVAL_TOKEN,
   PALLETTA_GROUP_ID,
-  assertPalletaApproval
+  assertPalletaApproval,
+  assertPalletaPostMessage
 } from "./publish-policy.mjs";
 import { sha256Path } from "./vk-publish.mjs";
 
@@ -22,6 +23,7 @@ const profileDir = process.env.VK_PROFILE_DIR || defaultProfileDir();
 const channel = process.env.VK_BROWSER_CHANNEL || "chrome";
 const videoPath = path.resolve(process.env.VK_VIDEO_PATH || "");
 const approval = process.env.VK_PUBLISH_APPROVAL || "";
+const postTextPath = process.env.VK_POST_TEXT_PATH ? path.resolve(process.env.VK_POST_TEXT_PATH) : "";
 const dryRun = process.env.VK_PUBLISH_DRY_RUN === "1";
 const diagnose = process.env.VK_PUBLISH_DIAGNOSE === "1";
 let stage = "START";
@@ -210,6 +212,31 @@ async function findVideoFileInput(page) {
   throw new Error("VK_VIDEO_FILE_INPUT_COUNT_" + (explicitVideo.length + generic.length));
 }
 
+async function findPostTextEditor(page) {
+  const candidates = [
+    page.getByRole("textbox", { name: /напишите что-нибудь/i }),
+    page.locator('[contenteditable="true"][aria-label*="Напишите" i]'),
+    page.locator('[contenteditable="true"]')
+  ];
+
+  const visible = [];
+  for (const locator of candidates) {
+    const count = await locator.count().catch(() => 0);
+    for (let i = 0; i < count; i += 1) {
+      const item = locator.nth(i);
+      if (await item.isVisible().catch(() => false)) {
+        if (!visible.some(existing => existing === item)) visible.push(item);
+      }
+    }
+    if (visible.length === 1) return visible[0];
+  }
+
+  if (visible.length !== 1) {
+    throw new Error("VK_POST_TEXT_EDITOR_COUNT_" + visible.length);
+  }
+  return visible[0];
+}
+
 async function findPublishButton(page) {
   const candidates = [
     page.getByRole("button", { name: /^опубликовать$/i }),
@@ -239,6 +266,15 @@ try {
   if (path.extname(videoPath).toLowerCase() !== ".mp4") throw new Error("VK_VIDEO_PATH_MUST_BE_MP4");
   const info = await stat(videoPath);
   if (!info.isFile() || info.size <= 0) throw new Error("VK_VIDEO_FILE_INVALID");
+
+  let postText = "";
+  if (!diagnose) {
+    if (!postTextPath) throw new Error("VK_POST_TEXT_PATH_MISSING");
+    const textInfo = await stat(postTextPath);
+    if (!textInfo.isFile() || textInfo.size <= 0) throw new Error("VK_POST_TEXT_FILE_INVALID");
+    postText = await readFile(postTextPath, "utf8");
+    assertPalletaPostMessage(postText);
+  }
 
   const hash = await sha256Path(videoPath);
   console.log("PALLETTA_VK_BROWSER_PREFLIGHT=PASS");
@@ -330,6 +366,14 @@ try {
     console.log("INTERESTING_CONTROLS_JSON=" + JSON.stringify(ui.interesting_controls));
     console.log("DIAG_PATH=" + evidenceDir);
     process.exit(0);
+  }
+
+  stage = "FILL_POST_TEXT";
+  const textEditor = await findPostTextEditor(page);
+  await textEditor.fill(postText);
+  const observedText = String(await textEditor.innerText().catch(() => "") || "").trim();
+  if (!observedText.includes("ВСЕГДА НИЗКИЕ ЦЕНЫ!") || !observedText.includes("Снежана")) {
+    throw new Error("VK_POST_TEXT_NOT_CONFIRMED_IN_EDITOR");
   }
 
   stage = "FIND_VIDEO_FILE_INPUT";
