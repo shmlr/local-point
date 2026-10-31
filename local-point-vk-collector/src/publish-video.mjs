@@ -1,10 +1,11 @@
 import path from "node:path";
 import process from "node:process";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import {
   PALLETTA_APPROVAL_TOKEN,
   PALLETTA_GROUP_ID,
-  PALLETTA_OWNER_ID
+  PALLETTA_OWNER_ID,
+  assertPalletaPostMessage
 } from "./publish-policy.mjs";
 import {
   callVkPalletaWrite,
@@ -16,6 +17,7 @@ import {
 const token = process.env.VK_USER_TOKEN || "";
 const videoPath = path.resolve(process.env.VK_VIDEO_PATH || "");
 const approval = process.env.VK_PUBLISH_APPROVAL || "";
+const postTextPath = process.env.VK_POST_TEXT_PATH ? path.resolve(process.env.VK_POST_TEXT_PATH) : "";
 const dryRun = process.env.VK_PUBLISH_DRY_RUN === "1";
 
 async function preflight() {
@@ -29,6 +31,12 @@ async function preflight() {
   if (!info.isFile()) throw new Error("VK_VIDEO_PATH_NOT_FILE");
   if (info.size <= 0) throw new Error("VK_VIDEO_FILE_EMPTY");
 
+  if (!postTextPath) throw new Error("VK_POST_TEXT_PATH_MISSING");
+  const textInfo = await stat(postTextPath);
+  if (!textInfo.isFile() || textInfo.size <= 0) throw new Error("VK_POST_TEXT_FILE_INVALID");
+  const postText = await readFile(postTextPath, "utf8");
+  assertPalletaPostMessage(postText);
+
   const hash = await sha256Path(videoPath);
   return {
     file: videoPath,
@@ -37,6 +45,9 @@ async function preflight() {
     group_id: PALLETTA_GROUP_ID,
     owner_id: PALLETTA_OWNER_ID,
     approval_present: approval === PALLETTA_APPROVAL_TOKEN,
+    post_text_path: postTextPath,
+    post_text_chars: postText.trim().length,
+    post_text: postText,
     dry_run: dryRun
   };
 }
@@ -87,6 +98,7 @@ try {
       owner_id: PALLETTA_OWNER_ID,
       from_group: true,
       attachments: [uploaded.attachment],
+      message: check.post_text,
       guid
     },
     token,
