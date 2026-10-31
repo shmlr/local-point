@@ -30,12 +30,12 @@ foreach ($file in $files) {
 
 $runnerPath = Join-Path $PSScriptRoot "Run-PalletaVideoBrowserPublish.ps1"
 $runnerText = Get-Content -Raw -Path $runnerPath
-if ($runnerText -notmatch 'PALLETTA_RUNNER_VERSION' -or $runnerText -notmatch '0\.1\.3') {
+if ($runnerText -notmatch 'PALLETTA_RUNNER_VERSION' -or $runnerText -notmatch '0\.1\.4') {
   throw "SYNC_VERSION_MISMATCH: expected Palleta runner 0.1.3"
 }
 
 Write-Host "SYNC_PALLETTA_PUBLISHER=PASS" -ForegroundColor Green
-Write-Host "PALLETTA_RUNNER_VERSION=0.1.3" -ForegroundColor Green
+Write-Host "PALLETTA_RUNNER_VERSION=0.1.4" -ForegroundColor Green
 Write-Host "Running tests..."
 & "C:\Program Files\nodejs\npm.cmd" test
 if ($LASTEXITCODE -ne 0) { throw "Publisher tests failed after sync." }
