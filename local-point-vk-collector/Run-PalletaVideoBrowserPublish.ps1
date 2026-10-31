@@ -1,9 +1,10 @@
 param(
   [string]$VideoPath,
-  [switch]$Execute
+  [switch]$Execute,
+  [switch]$Diagnose
 )
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "0.1.3"
+$RunnerVersion = "0.1.4"
 Set-Location $PSScriptRoot
 Write-Host ("PALLETTA_RUNNER_VERSION=" + $RunnerVersion) -ForegroundColor DarkGray
 
@@ -63,12 +64,19 @@ try {
   $ResolvedVideo = Find-PalletaVideo $VideoPath
   $env:VK_VIDEO_PATH = $ResolvedVideo
 
-  if ($Execute) {
+  if ($Diagnose) {
+    $env:VK_PUBLISH_DIAGNOSE = "1"
+    Remove-Item Env:VK_PUBLISH_APPROVAL -ErrorAction SilentlyContinue
+    Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
+    Write-Host "Mode: DIAGNOSE UI / NO VIDEO UPLOAD / NO PUBLISH" -ForegroundColor Cyan
+  } elseif ($Execute) {
     $env:VK_PUBLISH_APPROVAL = "PALLETTA_VIDEO_ONCE"
+    Remove-Item Env:VK_PUBLISH_DIAGNOSE -ErrorAction SilentlyContinue
     Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
     Write-Host "Mode: LOCAL PROFILE / PUBLISH ONE VIDEO TO PALLETTA ONLY" -ForegroundColor Yellow
   } else {
     $env:VK_PUBLISH_DRY_RUN = "1"
+    Remove-Item Env:VK_PUBLISH_DIAGNOSE -ErrorAction SilentlyContinue
     Remove-Item Env:VK_PUBLISH_APPROVAL -ErrorAction SilentlyContinue
     Write-Host "Mode: DRY RUN / NO WRITE" -ForegroundColor Cyan
   }
@@ -80,4 +88,5 @@ try {
   Remove-Item Env:VK_VIDEO_PATH -ErrorAction SilentlyContinue
   Remove-Item Env:VK_PUBLISH_APPROVAL -ErrorAction SilentlyContinue
   Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
+  Remove-Item Env:VK_PUBLISH_DIAGNOSE -ErrorAction SilentlyContinue
 }
