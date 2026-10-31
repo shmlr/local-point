@@ -3,7 +3,9 @@ param(
   [switch]$Execute
 )
 $ErrorActionPreference = "Stop"
+$RunnerVersion = "0.1.3"
 Set-Location $PSScriptRoot
+Write-Host ("PALLETTA_RUNNER_VERSION=" + $RunnerVersion) -ForegroundColor DarkGray
 
 function Find-PalletaVideo {
   param([string]$ExplicitPath)
