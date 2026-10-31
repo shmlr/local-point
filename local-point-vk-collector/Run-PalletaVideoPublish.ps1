@@ -1,6 +1,6 @@
 param(
   [string]$VideoPath,
-
+  [string]$PostTextPath,
   [switch]$Execute
 )
 $ErrorActionPreference = "Stop"
@@ -76,8 +76,12 @@ try {
     throw "Video file not found: $VideoPath"
   }
 
+  if (-not $PostTextPath) { throw "PostTextPath is required for dry-run and live publish." }
+  if (-not (Test-Path $PostTextPath)) { throw "Post text file not found: $PostTextPath" }
+
   $env:VK_USER_TOKEN = Read-DpapiSecureString $UserTokenFile
   $env:VK_VIDEO_PATH = (Resolve-Path $VideoPath).Path
+  $env:VK_POST_TEXT_PATH = (Resolve-Path $PostTextPath).Path
 
   if ($Execute) {
     $env:VK_PUBLISH_APPROVAL = "PALLETTA_VIDEO_ONCE"
@@ -96,4 +100,5 @@ try {
   Remove-Item Env:VK_VIDEO_PATH -ErrorAction SilentlyContinue
   Remove-Item Env:VK_PUBLISH_APPROVAL -ErrorAction SilentlyContinue
   Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
+  Remove-Item Env:VK_POST_TEXT_PATH -ErrorAction SilentlyContinue
 }
