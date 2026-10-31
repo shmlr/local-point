@@ -22,7 +22,7 @@ Allowed write operations:
    - owner_id exactly -197164485;
    - from_group=true;
    - exactly one video attachment owned by group 197164485;
-   - one pre-approved UTF-8 post text loaded from a separate local file;
+   - one caption rendered deterministically from the approved Palleta Reel template and a verified facts JSON file;
    - deterministic guid derived from the MP4 SHA-256.
 
 Everything else remains blocked.
@@ -62,12 +62,12 @@ Commands:
 
 Dry run:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4"
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -FactsPath ".\Palleta_Snezhana_5kg_facts.json"
 ```
 
 Execute one publication:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -Execute
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -FactsPath ".\Palleta_Snezhana_5kg_facts.json" -Execute
 ```
 
 Success criteria:
@@ -88,32 +88,48 @@ Because the existing VK ID token may be incompatible with legacy write methods, 
 
 `%LOCALAPPDATA%\LocalPoint\vk-profile`
 
-It opens only the Palleta community, confirms group ID evidence from the page, opens Create -> Post, loads one pre-approved UTF-8 caption, validates the required Palleta/SMM phrases, uploads exactly one MP4, and clicks exactly one visible publish button. It does not use a new OAuth app or third-party publishing service.
+It opens only the Palleta community, confirms group ID evidence from the page, opens Create -> Post, renders the caption only from the approved Palleta template plus verified product facts, uploads exactly one MP4, and clicks exactly one visible publish button. It does not use a new OAuth app or third-party publishing service.
 
 Dry run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -PostTextPath ".\Palleta_Snezhana_5kg_post.txt"
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -FactsPath ".\Palleta_Snezhana_5kg_facts.json"
 ```
 
 Live one-shot publish:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -PostTextPath ".\Palleta_Snezhana_5kg_post.txt" -Execute
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -FactsPath ".\Palleta_Snezhana_5kg_facts.json" -Execute
 ```
 
-The caption file is mandatory for dry-run and live publish. For the Snezhana 5 kg Reel it must pass the approved SMM gate: product name and 5 kg pack, verified current price, canonical address, approved CTA and legal footnote. Missing or invalid text -> BLOCKED.
+The facts file is mandatory for dry-run and live publish. It does not contain advertising copy. For the Snezhana 5 kg Reel it must contain a verified current retail price, stock_confirmed=true, approved evidence sources, and fresh verification timestamps. The caption itself is rendered from the approved Palleta template. Missing, stale or invalid facts -> BLOCKED.
 
 The runner auto-detects `Паллета_Reels_мука_Снежана_2_5_10кг.mp4` in known local project roots. A specific path can still be supplied with `-VideoPath`.
 
 The browser flow is fail-closed:
 - no Palleta self-ID evidence -> BLOCKED;
 - no unique composer -> BLOCKED;
-- no approved caption file -> BLOCKED;
-- caption does not pass the Palleta SMM gate -> BLOCKED;
+- no verified facts file -> BLOCKED;
+- missing/stale price or stock confirmation -> BLOCKED;
+- caption differs from the approved template -> BLOCKED;
 - no unique upload input -> BLOCKED;
 - no unique enabled publish button -> BLOCKED;
 - leaving VK -> BLOCKED.
 
 After submit, the result is reported as `SUBMITTED`, not automatically `CONFIRMED`. A subsequent READ-ONLY audit must verify the post before external state is treated as confirmed.
 
+
+
+## Facts gate for Snezhana 5 kg
+
+Current product key: `snezhana_flour_5kg`.
+
+Required facts:
+- `price_rub`: current retail price with kopeks;
+- `price_type`: exactly `retail` for the current publisher;
+- `stock_confirmed`: exactly `true`;
+- `price_source`: one of `1C`, `cash_register`, `VK`, `Instagram`, `owner_confirmed`;
+- `stock_source`: one of `1C`, `cash_register`, `owner_confirmed`;
+- `price_verified_at` and `stock_verified_at`: valid ISO timestamps not older than 24 hours.
+
+The repository example `examples/Palleta_Snezhana_5kg_facts.json` is intentionally blocked by default with null price and stock_confirmed=false.
