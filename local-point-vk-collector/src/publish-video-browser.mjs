@@ -29,6 +29,15 @@ function isVkUrl(value) {
   }
 }
 
+
+async function getPalletaWallLinks(page) {
+  const hrefs = await page.locator("a[href]").evaluateAll(nodes =>
+    nodes.map(node => String(node.href || ""))
+  ).catch(() => []);
+  const re = new RegExp("/wall-" + PALLETTA_GROUP_ID + "_[0-9]+(?:[/?#]|$)", "i");
+  return [...new Set(hrefs.filter(href => re.test(href)))];
+}
+
 async function verifyPalleta(page) {
   const current = page.url();
   if (!isVkUrl(current)) throw new Error("BROWSER_LEFT_VK");
@@ -144,6 +153,8 @@ try {
   await page.waitForTimeout(2500);
   await verifyPalleta(page);
 
+  const wallLinksBefore = await getPalletaWallLinks(page);
+
   const composer = await findComposer(page);
   await composer.click();
   await page.waitForTimeout(1000);
@@ -165,13 +176,22 @@ try {
   await verifyPalleta(page);
   await publishButton.click();
 
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(5000);
   if (!isVkUrl(page.url())) throw new Error("BROWSER_LEFT_VK_AFTER_PUBLISH");
 
-  console.log("PALLETTA_VK_BROWSER_PUBLISH=SUBMITTED");
+  const wallLinksAfter = await getPalletaWallLinks(page);
+  const newWallLinks = wallLinksAfter.filter(href => !wallLinksBefore.includes(href));
+
+  if (newWallLinks.length === 1) {
+    console.log("PALLETTA_VK_BROWSER_PUBLISH=CONFIRMED_UI_NEW_WALL_LINK");
+    console.log("POST_URL=" + newWallLinks[0]);
+  } else {
+    console.log("PALLETTA_VK_BROWSER_PUBLISH=SUBMITTED_UNKNOWN_EXTERNAL_STATE");
+    console.log("NEW_WALL_LINKS_FOUND=" + newWallLinks.length);
+  }
+
   console.log("OBSERVED_AT=" + isoNow());
   console.log("VIDEO_SHA256=" + hash);
-  console.log("NOTE=Verify resulting wall post manually or with READ-ONLY audit before treating as confirmed.");
 } catch (error) {
   console.error("PALLETTA_VK_BROWSER_PUBLISH=BLOCKED");
   console.error("REASON=" + (error instanceof Error ? error.message : String(error)));
