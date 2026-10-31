@@ -17,13 +17,14 @@ import {
   assertPalletaPostMessage
 } from "./publish-policy.mjs";
 import { sha256Path } from "./vk-publish.mjs";
+import { buildSnezhanaCaption } from "./palleta-post-template.mjs";
 
 const targetUrl = "https://vk.com/palleta.store";
 const profileDir = process.env.VK_PROFILE_DIR || defaultProfileDir();
 const channel = process.env.VK_BROWSER_CHANNEL || "chrome";
 const videoPath = path.resolve(process.env.VK_VIDEO_PATH || "");
 const approval = process.env.VK_PUBLISH_APPROVAL || "";
-const postTextPath = process.env.VK_POST_TEXT_PATH ? path.resolve(process.env.VK_POST_TEXT_PATH) : "";
+const factsPath = process.env.VK_PRODUCT_FACTS_PATH ? path.resolve(process.env.VK_PRODUCT_FACTS_PATH) : "";
 const dryRun = process.env.VK_PUBLISH_DRY_RUN === "1";
 const diagnose = process.env.VK_PUBLISH_DIAGNOSE === "1";
 let stage = "START";
@@ -268,11 +269,21 @@ try {
   if (!info.isFile() || info.size <= 0) throw new Error("VK_VIDEO_FILE_INVALID");
 
   let postText = "";
+  let verifiedFacts = null;
   if (!diagnose) {
-    if (!postTextPath) throw new Error("VK_POST_TEXT_PATH_MISSING");
-    const textInfo = await stat(postTextPath);
-    if (!textInfo.isFile() || textInfo.size <= 0) throw new Error("VK_POST_TEXT_FILE_INVALID");
-    postText = await readFile(postTextPath, "utf8");
+    if (!factsPath) throw new Error("VK_PRODUCT_FACTS_PATH_MISSING");
+    const factsInfo = await stat(factsPath);
+    if (!factsInfo.isFile() || factsInfo.size <= 0) throw new Error("VK_PRODUCT_FACTS_FILE_INVALID");
+    const rawFacts = await readFile(factsPath, "utf8");
+    let facts;
+    try {
+      facts = JSON.parse(rawFacts);
+    } catch {
+      throw new Error("VK_PRODUCT_FACTS_JSON_INVALID");
+    }
+    const built = buildSnezhanaCaption(facts);
+    postText = built.caption;
+    verifiedFacts = built.verified;
     assertPalletaPostMessage(postText);
   }
 
@@ -280,6 +291,11 @@ try {
   console.log("PALLETTA_VK_BROWSER_PREFLIGHT=PASS");
   console.log("VIDEO_SHA256=" + hash);
   console.log("VIDEO_BYTES=" + info.size);
+  if (verifiedFacts) {
+    console.log("PALLETTA_FACTS=PASS");
+    console.log("PRICE_SOURCE=" + verifiedFacts.price_source);
+    console.log("STOCK_SOURCE=" + verifiedFacts.stock_source);
+  }
 
   if (dryRun && !diagnose) {
     console.log("PALLETTA_VK_BROWSER_PUBLISH=PREPARED_NO_WRITE");
