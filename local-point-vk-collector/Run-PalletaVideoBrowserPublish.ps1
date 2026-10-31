@@ -4,7 +4,7 @@ param(
   [switch]$Diagnose
 )
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "0.1.7"
+$RunnerVersion = "0.1.8"
 Set-Location $PSScriptRoot
 Write-Host ("PALLETTA_RUNNER_VERSION=" + $RunnerVersion) -ForegroundColor DarkGray
 
