@@ -27,7 +27,7 @@ try {
   }
 
   if (-not $VideoPath) {
-    $TargetName = "Паллета_Reels_мука_Снежана_2_5_10кг.mp4"
+    $ExpectedBytes = 12092681
     $SearchRoots = @(
       $PSScriptRoot,
       (Join-Path $HOME "Downloads"),
@@ -38,18 +38,26 @@ try {
       "D:\Проекты"
     ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
-    $Found = $null
+    $Candidates = @()
     foreach ($Root in $SearchRoots) {
-      $Found = Get-ChildItem -Path $Root -Filter $TargetName -File -Recurse -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-      if ($Found) { break }
+      $Candidates += Get-ChildItem -Path $Root -Filter "*.mp4" -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object {
+          $_.Length -eq $ExpectedBytes -or
+          ($_.Name -match "Reels" -and $_.Name -match "2_5_10")
+        }
     }
 
-    if ($Found) {
-      $VideoPath = $Found.FullName
+    $Candidates = @($Candidates | Sort-Object FullName -Unique)
+
+    if ($Candidates.Count -eq 1) {
+      $VideoPath = $Candidates[0].FullName
       Write-Host ("Video auto-detected: " + $VideoPath) -ForegroundColor Green
+    } elseif ($Candidates.Count -eq 0) {
+      throw "Palleta video not found automatically. Expected MP4 size: $ExpectedBytes bytes."
     } else {
-      throw "Video file not found automatically: $TargetName"
+      Write-Host "Multiple candidate MP4 files found:" -ForegroundColor Yellow
+      $Candidates | ForEach-Object { Write-Host (" - " + $_.FullName) }
+      throw "PALLETTA_VIDEO_AMBIGUOUS"
     }
   }
 
