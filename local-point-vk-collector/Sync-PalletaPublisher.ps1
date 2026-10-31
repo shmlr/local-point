@@ -31,7 +31,7 @@ foreach ($file in $files) {
 $runnerPath = Join-Path $PSScriptRoot "Run-PalletaVideoBrowserPublish.ps1"
 $runnerText = Get-Content -Raw -Path $runnerPath
 if ($runnerText -notmatch 'PALLETTA_RUNNER_VERSION' -or $runnerText -notmatch '0\.1\.4') {
-  throw "SYNC_VERSION_MISMATCH: expected Palleta runner 0.1.3"
+  throw "SYNC_VERSION_MISMATCH: expected Palleta runner 0.1.4"
 }
 
 Write-Host "SYNC_PALLETTA_PUBLISHER=PASS" -ForegroundColor Green
