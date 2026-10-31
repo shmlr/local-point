@@ -3,8 +3,12 @@ import path from "node:path";
 import process from "node:process";
 import { stat } from "node:fs/promises";
 import {
+  defaultEvidenceRoot,
   defaultProfileDir,
-  isoNow
+  ensureDir,
+  isoNow,
+  safeStamp,
+  writeJson
 } from "./lib.mjs";
 import {
   PALLETTA_APPROVAL_TOKEN,
@@ -19,6 +23,9 @@ const channel = process.env.VK_BROWSER_CHANNEL || "chrome";
 const videoPath = path.resolve(process.env.VK_VIDEO_PATH || "");
 const approval = process.env.VK_PUBLISH_APPROVAL || "";
 const dryRun = process.env.VK_PUBLISH_DRY_RUN === "1";
+const diagnose = process.env.VK_PUBLISH_DIAGNOSE === "1";
+let stage = "START";
+let page = null;
 
 function isVkUrl(value) {
   try {
@@ -135,31 +142,85 @@ try {
   console.log("VIDEO_SHA256=" + hash);
   console.log("VIDEO_BYTES=" + info.size);
 
-  if (dryRun) {
+  if (dryRun && !diagnose) {
     console.log("PALLETTA_VK_BROWSER_PUBLISH=PREPARED_NO_WRITE");
     process.exit(0);
   }
 
-  assertPalletaApproval(approval);
+  if (!diagnose) {
+    assertPalletaApproval(approval);
+  }
 
+  stage = "LAUNCH_BROWSER";
   context = await chromium.launchPersistentContext(profileDir, {
     headless: false,
     channel,
     viewport: { width: 1440, height: 1000 }
   });
 
-  const page = context.pages()[0] || await context.newPage();
+  page = context.pages()[0] || await context.newPage();
+  stage = "OPEN_PALLETTA";
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForTimeout(2500);
+
+  stage = "VERIFY_PALLETTA";
   await verifyPalleta(page);
 
   const wallLinksBefore = await getPalletaWallLinks(page);
 
+  stage = "FIND_COMPOSER";
   const composer = await findComposer(page);
+
+  stage = "OPEN_COMPOSER";
   await composer.click();
   await page.waitForTimeout(1000);
 
+  if (diagnose) {
+    const evidenceDir = path.join(defaultEvidenceRoot(), "publish-diagnose-" + safeStamp(isoNow()));
+    await ensureDir(evidenceDir);
+
+    const inputs = page.locator('input[type="file"]');
+    const inputCount = await inputs.count().catch(() => 0);
+    const inputAccept = [];
+    for (let i = 0; i < inputCount; i += 1) {
+      inputAccept.push({
+        index: i,
+        accept: await inputs.nth(i).getAttribute("accept").catch(() => null)
+      });
+    }
+
+    const buttons = await page.locator("button").evaluateAll(nodes =>
+      nodes.map((node, index) => ({
+        index,
+        text: String(node.innerText || node.textContent || "").trim().replace(/\s+/g, " ").slice(0, 160),
+        disabled: Boolean(node.disabled)
+      })).filter(x => x.text).slice(0, 80)
+    ).catch(() => []);
+
+    const screenshotPath = path.join(evidenceDir, "composer.png");
+    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
+
+    const diagnostic = {
+      observed_at: isoNow(),
+      stage: "COMPOSER_OPENED",
+      final_url: page.url(),
+      wall_links_before: wallLinksBefore,
+      file_input_count: inputCount,
+      file_inputs: inputAccept,
+      buttons
+    };
+    await writeJson(path.join(evidenceDir, "diagnostic.json"), diagnostic);
+
+    console.log("PALLETTA_VK_DIAGNOSE=PASS");
+    console.log("DIAG_STAGE=COMPOSER_OPENED");
+    console.log("FILE_INPUT_COUNT=" + inputCount);
+    console.log("DIAG_PATH=" + evidenceDir);
+    process.exit(0);
+  }
+
+  stage = "FIND_VIDEO_FILE_INPUT";
   const fileInput = await findVideoFileInput(page);
+  stage = "UPLOAD_VIDEO";
   await fileInput.setInputFiles(videoPath);
 
   const started = Date.now();
@@ -173,7 +234,10 @@ try {
   }
   if (!publishButton) throw new Error("VK_VIDEO_UPLOAD_OR_PUBLISH_BUTTON_TIMEOUT");
 
+  stage = "REVERIFY_PALLETTA_BEFORE_PUBLISH";
   await verifyPalleta(page);
+
+  stage = "CLICK_PUBLISH";
   await publishButton.click();
 
   await page.waitForTimeout(5000);
@@ -193,8 +257,23 @@ try {
   console.log("OBSERVED_AT=" + isoNow());
   console.log("VIDEO_SHA256=" + hash);
 } catch (error) {
-  console.error("PALLETTA_VK_BROWSER_PUBLISH=BLOCKED");
-  console.error("REASON=" + (error instanceof Error ? error.message : String(error)));
+  if (page) {
+    try {
+      const evidenceDir = path.join(defaultEvidenceRoot(), "publish-blocked-" + safeStamp(isoNow()));
+      await ensureDir(evidenceDir);
+      await page.screenshot({ path: path.join(evidenceDir, "blocked.png"), fullPage: true }).catch(() => {});
+      await writeJson(path.join(evidenceDir, "blocked.json"), {
+        observed_at: isoNow(),
+        stage,
+        reason: error instanceof Error ? error.message : String(error),
+        final_url: page.url()
+      });
+      console.log("DIAG_PATH=" + evidenceDir);
+    } catch {}
+  }
+  console.log("PALLETTA_VK_BROWSER_PUBLISH=BLOCKED");
+  console.log("STAGE=" + stage);
+  console.log("REASON=" + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 2;
 } finally {
   if (context) await context.close().catch(() => {});
