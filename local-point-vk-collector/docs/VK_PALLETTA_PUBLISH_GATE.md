@@ -22,14 +22,14 @@ Allowed write operations:
    - owner_id exactly -197164485;
    - from_group=true;
    - exactly one video attachment owned by group 197164485;
-   - empty post text;
+   - one pre-approved UTF-8 post text loaded from a separate local file;
    - deterministic guid derived from the MP4 SHA-256.
 
 Everything else remains blocked.
 
 The publisher cannot:
 - publish to another community;
-- publish text;
+- publish arbitrary or unvalidated text;
 - publish photos or multiple attachments;
 - edit or delete posts;
 - send messages;
@@ -88,25 +88,29 @@ Because the existing VK ID token may be incompatible with legacy write methods, 
 
 `%LOCALAPPDATA%\LocalPoint\vk-profile`
 
-It opens only the Palleta community, confirms group ID evidence from the page, uploads exactly one MP4, leaves post text empty, and clicks exactly one visible publish button. It does not use a new OAuth app or third-party publishing service.
+It opens only the Palleta community, confirms group ID evidence from the page, opens Create -> Post, loads one pre-approved UTF-8 caption, validates the required Palleta/SMM phrases, uploads exactly one MP4, and clicks exactly one visible publish button. It does not use a new OAuth app or third-party publishing service.
 
 Dry run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -PostTextPath ".\Palleta_Snezhana_5kg_post.txt"
 ```
 
 Live one-shot publish:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -Execute
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoBrowserPublish.ps1 -PostTextPath ".\Palleta_Snezhana_5kg_post.txt" -Execute
 ```
+
+The caption file is mandatory for dry-run and live publish. For the Snezhana 5 kg Reel it must pass the approved SMM gate: product name and 5 kg pack, verified current price, canonical address, approved CTA and legal footnote. Missing or invalid text -> BLOCKED.
 
 The runner auto-detects `Паллета_Reels_мука_Снежана_2_5_10кг.mp4` in known local project roots. A specific path can still be supplied with `-VideoPath`.
 
 The browser flow is fail-closed:
 - no Palleta self-ID evidence -> BLOCKED;
 - no unique composer -> BLOCKED;
+- no approved caption file -> BLOCKED;
+- caption does not pass the Palleta SMM gate -> BLOCKED;
 - no unique upload input -> BLOCKED;
 - no unique enabled publish button -> BLOCKED;
 - leaving VK -> BLOCKED.
