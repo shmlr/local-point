@@ -73,21 +73,65 @@ async function clickOne(locator, label) {
   await locator.click();
 }
 
+async function collectUiDiagnostics(page) {
+  const title = await page.title().catch(() => "");
+  const bodyText = await page.locator("body").innerText().catch(() => "");
+  const controls = await page.locator('button, [role="button"], a[href], textarea, input, [contenteditable="true"]').evaluateAll(nodes =>
+    nodes.map((node, index) => ({
+      index,
+      tag: String(node.tagName || "").toLowerCase(),
+      role: node.getAttribute?.("role") || null,
+      type: node.getAttribute?.("type") || null,
+      text: String(node.innerText || node.textContent || "").trim().replace(/\s+/g, " ").slice(0, 180),
+      aria: node.getAttribute?.("aria-label") || null,
+      placeholder: node.getAttribute?.("placeholder") || null,
+      href: node.getAttribute?.("href") || null,
+      contenteditable: node.getAttribute?.("contenteditable") || null
+    })).filter(x => x.text || x.aria || x.placeholder || x.contenteditable === "true").slice(0, 160)
+  ).catch(() => []);
+
+  const interesting = controls.filter(x => {
+    const hay = [x.text, x.aria, x.placeholder, x.href].filter(Boolean).join(" ");
+    return /(запис|пост|публик|созда|добав|нов|управ|войти|вход|write|post|publish|create|add|manage|login)/i.test(hay) ||
+      x.contenteditable === "true" ||
+      x.tag === "textarea";
+  });
+
+  return {
+    title,
+    final_url: page.url(),
+    body_text_sample: bodyText.replace(/\s+/g, " ").slice(0, 1200),
+    controls_count: controls.length,
+    interesting_controls: interesting.slice(0, 80)
+  };
+}
+
 async function findComposer(page) {
   const candidates = [
     page.getByRole("button", { name: /создать запись/i }),
     page.getByRole("button", { name: /новая запись/i }),
+    page.getByRole("button", { name: /добавить запись/i }),
     page.getByText(/что у вас нового/i, { exact: false }),
-    page.locator('[contenteditable="true"]').filter({ hasText: /./ })
+    page.getByText(/создать запись/i, { exact: false }),
+    page.getByText(/добавить запись/i, { exact: false }),
+    page.locator('[contenteditable="true"]'),
+    page.locator('textarea[placeholder*="нов" i]')
   ];
 
+  const visible = [];
   for (const locator of candidates) {
     const count = await locator.count().catch(() => 0);
-    if (count === 1 && await locator.isVisible().catch(() => false)) {
-      return locator;
+    for (let i = 0; i < count; i += 1) {
+      const item = locator.nth(i);
+      if (await item.isVisible().catch(() => false)) visible.push(item);
     }
   }
-  throw new Error("VK_POST_COMPOSER_NOT_FOUND");
+
+  if (visible.length === 1) return visible[0];
+
+  const diag = await collectUiDiagnostics(page);
+  const encoded = Buffer.from(JSON.stringify(diag), "utf8").toString("base64");
+  throw new Error("VK_POST_COMPOSER_NOT_FOUND_DIAG_B64=" + encoded);
 }
 
 async function findVideoFileInput(page) {
@@ -262,13 +306,22 @@ try {
       const evidenceDir = path.join(defaultEvidenceRoot(), "publish-blocked-" + safeStamp(isoNow()));
       await ensureDir(evidenceDir);
       await page.screenshot({ path: path.join(evidenceDir, "blocked.png"), fullPage: true }).catch(() => {});
+      const ui = await collectUiDiagnostics(page).catch(() => null);
       await writeJson(path.join(evidenceDir, "blocked.json"), {
         observed_at: isoNow(),
         stage,
         reason: error instanceof Error ? error.message : String(error),
-        final_url: page.url()
+        final_url: page.url(),
+        ui
       });
       console.log("DIAG_PATH=" + evidenceDir);
+      if (ui) {
+        console.log("PAGE_TITLE=" + ui.title);
+        console.log("PAGE_URL=" + ui.final_url);
+        console.log("CONTROLS_COUNT=" + ui.controls_count);
+        console.log("BODY_SAMPLE=" + ui.body_text_sample);
+        console.log("INTERESTING_CONTROLS_JSON=" + JSON.stringify(ui.interesting_controls));
+      }
     } catch {}
   }
   console.log("PALLETTA_VK_BROWSER_PUBLISH=BLOCKED");
