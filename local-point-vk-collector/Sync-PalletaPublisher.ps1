@@ -17,15 +17,25 @@ $files = @(
   @{ Remote = "package.json"; Local = ".\package.json" }
 )
 
+$cacheBust = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+
 foreach ($file in $files) {
   $dir = Split-Path $file.Local -Parent
   if ($dir -and -not (Test-Path $dir)) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
   }
-  Invoke-WebRequest ($base + "/" + $file.Remote) -OutFile $file.Local
+  $url = $base + "/" + $file.Remote + "?v=" + $cacheBust
+  Invoke-WebRequest $url -Headers @{ "Cache-Control" = "no-cache" } -OutFile $file.Local
+}
+
+$runnerPath = Join-Path $PSScriptRoot "Run-PalletaVideoBrowserPublish.ps1"
+$runnerText = Get-Content -Raw -Path $runnerPath
+if ($runnerText -notmatch 'PALLETTA_RUNNER_VERSION' -or $runnerText -notmatch '0\.1\.3') {
+  throw "SYNC_VERSION_MISMATCH: expected Palleta runner 0.1.3"
 }
 
 Write-Host "SYNC_PALLETTA_PUBLISHER=PASS" -ForegroundColor Green
+Write-Host "PALLETTA_RUNNER_VERSION=0.1.3" -ForegroundColor Green
 Write-Host "Running tests..."
 & "C:\Program Files\nodejs\npm.cmd" test
 if ($LASTEXITCODE -ne 0) { throw "Publisher tests failed after sync." }
