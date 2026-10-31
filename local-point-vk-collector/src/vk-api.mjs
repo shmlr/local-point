@@ -22,13 +22,13 @@ export async function callVkReadOnly({
     else if (typeof value === "boolean") body.set(key, value ? "1" : "0");
     else body.set(key, String(value));
   }
-  body.set("access_token", token);
   body.set("v", VK_API_VERSION);
 
   const response = await fetchImpl(`${API_ROOT}/${method}`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
+      "authorization": `Bearer ${token}`,
       "user-agent": "LocalPoint-VK-Collector/0.3"
     },
     body
