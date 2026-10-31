@@ -129,9 +129,7 @@ async function findComposer(page) {
 
   if (visible.length === 1) return visible[0];
 
-  const diag = await collectUiDiagnostics(page);
-  const encoded = Buffer.from(JSON.stringify(diag), "utf8").toString("base64");
-  throw new Error("VK_POST_COMPOSER_NOT_FOUND_DIAG_B64=" + encoded);
+  throw new Error("VK_POST_COMPOSER_NOT_FOUND");
 }
 
 async function findVideoFileInput(page) {
