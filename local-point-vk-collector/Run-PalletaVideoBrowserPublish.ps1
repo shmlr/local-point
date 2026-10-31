@@ -19,9 +19,7 @@ function Find-PalletaVideo {
     (Join-Path $HOME "Downloads"),
     (Join-Path $HOME "Desktop"),
     (Join-Path $HOME "Documents"),
-    "D:\R01-Agent-Workspace",
-    "D:\Файлы проектов",
-    "D:\Проекты"
+    "D:\R01-Agent-Workspace"
   ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
 
   $Candidates = @()
@@ -34,6 +32,17 @@ function Find-PalletaVideo {
   }
 
   $Candidates = @($Candidates | Sort-Object FullName -Unique)
+
+  if ($Candidates.Count -eq 0 -and (Test-Path "D:\")) {
+    $Candidates = @(
+      Get-ChildItem -Path "D:\" -Filter "*.mp4" -File -Recurse -ErrorAction SilentlyContinue |
+        Where-Object {
+          $_.Length -eq $ExpectedBytes -or
+          ($_.Name -match "Reels" -and $_.Name -match "2_5_10")
+        } |
+        Sort-Object FullName -Unique
+    )
+  }
 
   if ($Candidates.Count -eq 1) {
     return $Candidates[0].FullName
