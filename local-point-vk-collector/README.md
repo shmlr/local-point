@@ -193,23 +193,37 @@ Fixed target:
 - group ID `197164485`
 
 Allowed write sequence:
-1. `video.save` for group `197164485`, with `wallpost=false`;
-2. upload one MP4 to the returned VK upload URL;
-3. `wall.post` to owner `-197164485`, from the group, with exactly one Palleta-owned video attachment and no post text.
+1. load and validate one pre-approved UTF-8 Palleta post text;
+2. `video.save` for group `197164485`, with `wallpost=false`;
+3. upload one MP4 to the returned VK upload URL;
+4. `wall.post` to owner `-197164485`, from the group, with exactly one Palleta-owned video attachment and the validated post text.
 
 All other VK write methods remain blocked.
 
 Dry run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4"
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -PostTextPath "C:\path\to\post.txt"
 ```
 
 Execute:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -Execute
+powershell -ExecutionPolicy Bypass -File .\Run-PalletaVideoPublish.ps1 -VideoPath "C:\path\to\video.mp4" -PostTextPath "C:\path\to\post.txt" -Execute
 ```
 
 See `docs/VK_PALLETTA_PUBLISH_GATE.md` before first live use.
 
+
+
+### Palleta caption gate
+
+For the current Snezhana 5 kg Reel, live publication is fail-closed until the caption has:
+- the approved opening: `ВСЕГДА НИЗКИЕ ЦЕНЫ!`;
+- `Снежана` and `5 кг`;
+- a verified current retail price;
+- the canonical address `Махачкала, проспект Петра I, 49.`;
+- the approved CTA `Приходите в «Паллету»!`;
+- the approved legal footnote.
+
+The caption is read from a separate UTF-8 text file. The publisher does not invent or silently rewrite it.
