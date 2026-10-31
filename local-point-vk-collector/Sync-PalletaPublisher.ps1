@@ -3,6 +3,9 @@ Set-Location $PSScriptRoot
 
 $base = "https://raw.githubusercontent.com/shmlr/local-point/feature/vk-palleta-publisher-v0.1/local-point-vk-collector"
 $files = @(
+  @{ Remote = "src/api-policy.mjs"; Local = ".\src\api-policy.mjs" },
+  @{ Remote = "src/vk-api.mjs"; Local = ".\src\vk-api.mjs" },
+  @{ Remote = "test/api-policy.test.mjs"; Local = ".\test\api-policy.test.mjs" },
   @{ Remote = "src/publish-policy.mjs"; Local = ".\src\publish-policy.mjs" },
   @{ Remote = "src/vk-publish.mjs"; Local = ".\src\vk-publish.mjs" },
   @{ Remote = "src/publish-video.mjs"; Local = ".\src\publish-video.mjs" },
