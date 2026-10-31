@@ -238,6 +238,46 @@ async function findPostTextEditor(page) {
   return visible[0];
 }
 
+async function collectUploadDiagnostics(page) {
+  const bodyText = await page.locator("body").innerText().catch(() => "");
+  const buttons = await page.locator('button, [role="button"]').evaluateAll(nodes =>
+    nodes.map((node, index) => ({
+      index,
+      text: String(node.innerText || node.textContent || "").trim().replace(/\s+/g, " ").slice(0, 180),
+      aria: node.getAttribute?.("aria-label") || null,
+      disabled: Boolean(node.disabled)
+    })).filter(x => x.text || x.aria).slice(0, 120)
+  ).catch(() => []);
+
+  const dialogs = await page.locator('[role="dialog"], [aria-modal="true"]').evaluateAll(nodes =>
+    nodes.map((node, index) => ({
+      index,
+      text: String(node.innerText || node.textContent || "").trim().replace(/\s+/g, " ").slice(0, 1200)
+    })).filter(x => x.text)
+  ).catch(() => []);
+
+  const fileInputs = await page.locator('input[type="file"]').evaluateAll(nodes =>
+    nodes.map((node, index) => ({
+      index,
+      accept: node.getAttribute("accept") || "",
+      files: node.files ? Array.from(node.files).map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })) : []
+    }))
+  ).catch(() => []);
+
+  const relevantBody = bodyText
+    .split(/\n+/)
+    .map(x => x.trim())
+    .filter(Boolean)
+    .filter(x => /(видео|загруз|обработ|ошиб|опубликов|размест|отправ|добав|файл)/i.test(x))
+    .slice(0, 80);
+
+  return { buttons, dialogs, file_inputs: fileInputs, relevant_body: relevantBody };
+}
+
 async function findPublishButton(page) {
   const candidates = [
     page.getByRole("button", { name: /^опубликовать$/i }),
@@ -406,7 +446,26 @@ try {
     } catch {}
     await page.waitForTimeout(1500);
   }
-  if (!publishButton) throw new Error("VK_VIDEO_UPLOAD_OR_PUBLISH_BUTTON_TIMEOUT");
+  if (!publishButton) {
+    const uploadDiag = await collectUploadDiagnostics(page).catch(() => null);
+    if (uploadDiag) {
+      const evidenceDir = path.join(defaultEvidenceRoot(), "publish-upload-timeout-" + safeStamp(isoNow()));
+      await ensureDir(evidenceDir);
+      await page.screenshot({ path: path.join(evidenceDir, "upload-timeout.png"), fullPage: true }).catch(() => {});
+      await writeJson(path.join(evidenceDir, "upload-timeout.json"), {
+        observed_at: isoNow(),
+        stage: "UPLOAD_VIDEO",
+        final_url: page.url(),
+        ...uploadDiag
+      });
+      console.log("UPLOAD_DIAG_PATH=" + evidenceDir);
+      console.log("UPLOAD_DIALOGS_JSON=" + JSON.stringify(uploadDiag.dialogs));
+      console.log("UPLOAD_RELEVANT_BODY_JSON=" + JSON.stringify(uploadDiag.relevant_body));
+      console.log("UPLOAD_FILE_INPUTS_JSON=" + JSON.stringify(uploadDiag.file_inputs));
+      console.log("UPLOAD_BUTTONS_JSON=" + JSON.stringify(uploadDiag.buttons));
+    }
+    throw new Error("VK_VIDEO_UPLOAD_OR_PUBLISH_BUTTON_TIMEOUT");
+  }
 
   stage = "REVERIFY_PALLETTA_BEFORE_PUBLISH";
   await verifyPalleta(page);
