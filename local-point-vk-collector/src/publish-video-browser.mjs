@@ -129,6 +129,19 @@ async function findComposer(page) {
 
   if (visible.length === 1) return visible[0];
 
+  if (visible.length === 0) {
+    const createButtons = page.getByRole("button", { name: /^создать$/i });
+    const count = await createButtons.count().catch(() => 0);
+    const visibleCreate = [];
+    for (let i = 0; i < count; i += 1) {
+      const item = createButtons.nth(i);
+      if (await item.isVisible().catch(() => false)) visibleCreate.push(item);
+    }
+    if (visibleCreate.length === 1) {
+      return { kind: "CREATE_MENU", locator: visibleCreate[0] };
+    }
+  }
+
   throw new Error("VK_POST_COMPOSER_NOT_FOUND");
 }
 
@@ -214,8 +227,29 @@ try {
   const composer = await findComposer(page);
 
   stage = "OPEN_COMPOSER";
-  await composer.click();
+  const composerKind = composer?.kind || "DIRECT";
+  const composerLocator = composer?.locator || composer;
+  await composerLocator.click();
   await page.waitForTimeout(1000);
+
+  if (diagnose && composerKind === "CREATE_MENU") {
+    const evidenceDir = path.join(defaultEvidenceRoot(), "publish-diagnose-create-" + safeStamp(isoNow()));
+    await ensureDir(evidenceDir);
+
+    const ui = await collectUiDiagnostics(page);
+    const screenshotPath = path.join(evidenceDir, "create-menu.png");
+    await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
+    await writeJson(path.join(evidenceDir, "create-menu.json"), ui);
+
+    console.log("PALLETTA_VK_DIAGNOSE=PASS");
+    console.log("DIAG_STAGE=CREATE_MENU_OPENED");
+    console.log("DIAG_PATH=" + evidenceDir);
+    console.log("PAGE_TITLE=" + ui.title);
+    console.log("PAGE_URL=" + ui.final_url);
+    console.log("BODY_SAMPLE=" + ui.body_text_sample);
+    console.log("INTERESTING_CONTROLS_JSON=" + JSON.stringify(ui.interesting_controls));
+    process.exit(0);
+  }
 
   if (diagnose) {
     const evidenceDir = path.join(defaultEvidenceRoot(), "publish-diagnose-" + safeStamp(isoNow()));
