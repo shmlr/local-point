@@ -49,6 +49,17 @@ try {
 
     $Candidates = @($Candidates | Sort-Object FullName -Unique)
 
+    if ($Candidates.Count -eq 0 -and (Test-Path "D:\")) {
+      $Candidates = @(
+        Get-ChildItem -Path "D:\" -Filter "*.mp4" -File -Recurse -ErrorAction SilentlyContinue |
+          Where-Object {
+            $_.Length -eq $ExpectedBytes -or
+            ($_.Name -match "Reels" -and $_.Name -match "2_5_10")
+          } |
+          Sort-Object FullName -Unique
+      )
+    }
+
     if ($Candidates.Count -eq 1) {
       $VideoPath = $Candidates[0].FullName
       Write-Host ("Video auto-detected: " + $VideoPath) -ForegroundColor Green
