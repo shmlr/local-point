@@ -5,6 +5,7 @@ import {
   PALLETTA_GROUP_ID,
   PALLETTA_OWNER_ID,
   assertPalletaApproval,
+  assertPalletaPostMessage,
   assertPalletaWriteMethod
 } from "../src/publish-policy.mjs";
 import { callVkPalletaWrite } from "../src/vk-publish.mjs";
@@ -39,12 +40,36 @@ test("video.save is restricted to Palleta and wallpost false", () => {
   );
 });
 
-test("wall.post allows one Palleta video attachment only", () => {
+const VALID_POST_TEXT = [
+  "ВСЕГДА НИЗКИЕ ЦЕНЫ!",
+  "",
+  "Мука Снежана, 5 кг - 199,90 ₽",
+  "",
+  "Для домашнего хлеба, пирогов, чуду и любимой выпечки.",
+  "",
+  "Махачкала, проспект Петра I, 49.",
+  "",
+  "Приходите в «Паллету»!",
+  "",
+  "*Без торговой наценки продаётся часть ассортимента. Перечень товаров может меняться. Цены и наличие актуальны на момент публикации.*"
+].join("\n");
+
+test("approved Palleta post text is mandatory", () => {
+  assert.doesNotThrow(() => assertPalletaPostMessage(VALID_POST_TEXT));
+  assert.throws(() => assertPalletaPostMessage(""), /POST_TEXT_REQUIRED/);
+  assert.throws(
+    () => assertPalletaPostMessage(VALID_POST_TEXT.replace("199,90 ₽", "цена уточняется")),
+    /PRICE_REQUIRED/
+  );
+});
+
+test("wall.post allows one Palleta video attachment and approved text only", () => {
   assert.doesNotThrow(() =>
     assertPalletaWriteMethod("wall.post", "user", {
       owner_id: PALLETTA_OWNER_ID,
       from_group: true,
       attachments: ["video-197164485_123"],
+      message: VALID_POST_TEXT,
       guid: "localpoint-palleta-video-test"
     })
   );
@@ -54,6 +79,7 @@ test("wall.post allows one Palleta video attachment only", () => {
       owner_id: PALLETTA_OWNER_ID,
       from_group: true,
       attachments: ["photo-197164485_123"],
+      message: VALID_POST_TEXT,
       guid: "localpoint-palleta-video-test"
     }),
     /ATTACHMENT_BLOCKED/
