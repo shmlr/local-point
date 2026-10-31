@@ -1,10 +1,11 @@
 param(
   [string]$VideoPath,
+  [string]$PostTextPath,
   [switch]$Execute,
   [switch]$Diagnose
 )
 $ErrorActionPreference = "Stop"
-$RunnerVersion = "0.1.9"
+$RunnerVersion = "0.2.0"
 Set-Location $PSScriptRoot
 Write-Host ("PALLETTA_RUNNER_VERSION=" + $RunnerVersion) -ForegroundColor DarkGray
 
@@ -64,6 +65,13 @@ try {
   $ResolvedVideo = Find-PalletaVideo $VideoPath
   $env:VK_VIDEO_PATH = $ResolvedVideo
 
+  if (-not $Diagnose) {
+    if (-not $PostTextPath) { throw "PostTextPath is required for dry-run and live publish." }
+    if (-not (Test-Path $PostTextPath)) { throw "Post text file not found: $PostTextPath" }
+    $ResolvedPostText = (Resolve-Path $PostTextPath).Path
+    $env:VK_POST_TEXT_PATH = $ResolvedPostText
+  }
+
   if ($Diagnose) {
     $env:VK_PUBLISH_DIAGNOSE = "1"
     Remove-Item Env:VK_PUBLISH_APPROVAL -ErrorAction SilentlyContinue
@@ -72,6 +80,7 @@ try {
   } elseif ($Execute) {
     $env:VK_PUBLISH_APPROVAL = "PALLETTA_VIDEO_ONCE"
     Remove-Item Env:VK_PUBLISH_DIAGNOSE -ErrorAction SilentlyContinue
+  Remove-Item Env:VK_POST_TEXT_PATH -ErrorAction SilentlyContinue
     Remove-Item Env:VK_PUBLISH_DRY_RUN -ErrorAction SilentlyContinue
     Write-Host "Mode: LOCAL PROFILE / PUBLISH ONE VIDEO TO PALLETTA ONLY" -ForegroundColor Yellow
   } else {
@@ -82,6 +91,7 @@ try {
   }
 
   Write-Host ("Video: " + $ResolvedVideo)
+  if (-not $Diagnose) { Write-Host ("Post text: " + $ResolvedPostText) }
   & "C:\Program Files\nodejs\node.exe" ".\src\publish-video-browser.mjs"
   exit $LASTEXITCODE
 } finally {
